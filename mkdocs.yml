@@ -1,0 +1,5 @@
+site_name: omop_cohort_builder
+theme:
+  name: material
+nav:
+  - Home: index.md
