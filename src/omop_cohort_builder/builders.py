@@ -9,6 +9,7 @@ from omop_cohort_builder.domain import (
     DrugExposure,
     VisitOccurrence,
     ProcedureOccurrence,
+    Measurement,
     Criteria,
 )
 from omop_cohort_builder.schema import (
@@ -16,6 +17,7 @@ from omop_cohort_builder.schema import (
     drug_exposure,
     visit_occurrence,
     procedure_occurrence,
+    measurement,
 )
 
 
@@ -52,6 +54,106 @@ class QueryBuilder:
             query = query.where(
                 condition_occurrence.c.condition_source_concept_id
                 == criteria.condition_source_concept
+            )
+
+        return query
+
+    @build_criteria.register
+    def _build_measurement(self, criteria: Measurement) -> Select:
+        """
+        Builds a SQL query for Measurement criteria.
+        """
+        query = select(measurement)
+
+        # 1. Measurement Type (List of Concepts) -> measurement_type_concept_id IN (...)
+        if criteria.measurement_type:
+            concept_ids = [c.concept_id for c in criteria.measurement_type]
+            query = query.where(
+                measurement.c.measurement_type_concept_id.in_(concept_ids)
+            )
+
+        # 2. Operator (List of Concepts) -> operator_concept_id IN (...)
+        if criteria.operator:
+            concept_ids = [c.concept_id for c in criteria.operator]
+            query = query.where(measurement.c.operator_concept_id.in_(concept_ids))
+
+        # 3. Value As Number (NumericRange)
+        if criteria.value_as_number:
+            query = self._apply_numeric_filter(
+                query, measurement.c.value_as_number, criteria.value_as_number
+            )
+
+        # 4. Value As Concept (List of Concepts) -> value_as_concept_id IN (...)
+        if criteria.value_as_concept:
+            concept_ids = [c.concept_id for c in criteria.value_as_concept]
+            query = query.where(measurement.c.value_as_concept_id.in_(concept_ids))
+
+        # 5. Unit (List of Concepts) -> unit_concept_id IN (...)
+        if criteria.unit:
+            concept_ids = [c.concept_id for c in criteria.unit]
+            query = query.where(measurement.c.unit_concept_id.in_(concept_ids))
+
+        # 6. Range Low (NumericRange)
+        if criteria.range_low:
+            query = self._apply_numeric_filter(
+                query, measurement.c.range_low, criteria.range_low
+            )
+
+        # 7. Range High (NumericRange)
+        if criteria.range_high:
+            query = self._apply_numeric_filter(
+                query, measurement.c.range_high, criteria.range_high
+            )
+
+        # 8. Range Low Ratio (NumericRange) -> (value_as_number / range_low)
+        # Note: We use NULLIF to avoid divide by zero errors, mirroring Java behavior implicitly or explicitly.
+        # However, SQLAlchemy's NULLIF support depends on dialect. Standard SQL 'NULLIF' is widely supported.
+        if criteria.range_low_ratio:
+            # We need to construct the expression: value_as_number / NULLIF(range_low, 0)
+            # Since we are using Core, we can import func
+            from sqlalchemy import func
+
+            ratio_expr = measurement.c.value_as_number / func.nullif(
+                measurement.c.range_low, 0
+            )
+            query = self._apply_numeric_filter(
+                query, ratio_expr, criteria.range_low_ratio
+            )
+
+        # 9. Range High Ratio (NumericRange) -> (value_as_number / range_high)
+        if criteria.range_high_ratio:
+            from sqlalchemy import func
+
+            ratio_expr = measurement.c.value_as_number / func.nullif(
+                measurement.c.range_high, 0
+            )
+            query = self._apply_numeric_filter(
+                query, ratio_expr, criteria.range_high_ratio
+            )
+
+        # 10. Abnormal (bool)
+        if criteria.abnormal:
+            # Java: (C.value_as_number < C.range_low or C.value_as_number > C.range_high or C.value_as_concept_id in (4155142, 4155143))
+            from sqlalchemy import or_
+
+            abnormal_expr = or_(
+                measurement.c.value_as_number < measurement.c.range_low,
+                measurement.c.value_as_number > measurement.c.range_high,
+                measurement.c.value_as_concept_id.in_([4155142, 4155143]),
+            )
+            query = query.where(abnormal_expr)
+
+        # 11. Measurement Source Concept (int)
+        if criteria.measurement_source_concept is not None:
+            query = query.where(
+                measurement.c.measurement_source_concept_id
+                == criteria.measurement_source_concept
+            )
+
+        # 12. Occurrence Start Date -> measurement_date
+        if criteria.occurrence_start_date:
+            query = self._apply_date_filter(
+                query, measurement.c.measurement_date, criteria.occurrence_start_date
             )
 
         return query
