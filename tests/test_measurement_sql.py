@@ -116,14 +116,13 @@ def test_build_measurement_ratios_and_abnormal():
     assert "1.5" in sql
     assert "0.5" in sql
 
+
 def test_build_measurement_date_filter():
     qb = QueryBuilder()
     # Create a DateRange object. Assuming DateRange structure from base/domain.
     from omop_cohort_builder.base import DateRange
 
-    criteria = Measurement(
-        occurrence_start_date=DateRange(value="2023-01-01", op="gt")
-    )
+    criteria = Measurement(occurrence_start_date=DateRange(value="2023-01-01", op="gt"))
 
     query = qb.build_criteria(criteria)
     sql = str(compile_query(query))
