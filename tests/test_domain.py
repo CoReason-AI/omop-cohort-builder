@@ -1,6 +1,7 @@
 from omop_cohort_builder.domain import (
     ConditionOccurrence,
     DrugExposure,
+    VisitOccurrence,
     Criteria,
     ConceptSetSelection,
     TextFilter,
@@ -65,3 +66,35 @@ def test_criteria_round_trip():
     obj = adapter.validate_python(dump)
     assert isinstance(obj, ConditionOccurrence)
     assert obj.codeset_id == 999
+
+
+def test_visit_occurrence_serialization():
+    vo = VisitOccurrence(
+        codeset_id=42,
+        visit_type_exclude=True,
+        visit_source_concept=1001,
+        place_of_service_cs=ConceptSetSelection(codeset_id=9),
+    )
+    dump = vo.model_dump(by_alias=True)
+    assert "VisitOccurrence" in dump
+    inner = dump["VisitOccurrence"]
+    assert inner["CodesetId"] == 42
+    assert inner["VisitTypeExclude"] is True
+    assert inner["VisitSourceConcept"] == 1001
+    assert inner["PlaceOfServiceCS"]["CodesetId"] == 9
+
+
+def test_visit_occurrence_polymorphism():
+    adapter = TypeAdapter(Criteria)
+    data = {
+        "VisitOccurrence": {
+            "CodesetId": 777,
+            "First": True,
+            "PlaceOfServiceLocation": 99,
+        }
+    }
+    obj = adapter.validate_python(data)
+    assert isinstance(obj, VisitOccurrence)
+    assert obj.codeset_id == 777
+    assert obj.first is True
+    assert obj.place_of_service_location == 99

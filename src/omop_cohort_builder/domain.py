@@ -138,8 +138,34 @@ class DrugExposure(WrappedCriteriaMixin):
     visit_type_cs: Optional[ConceptSetSelection] = Field(None, alias="VisitTypeCS")
 
 
+class VisitOccurrence(WrappedCriteriaMixin):
+    criteria_type: Literal["VisitOccurrence"] = "VisitOccurrence"
+
+    codeset_id: Optional[int] = None
+    first: Optional[bool] = None
+    occurrence_start_date: Optional[DateRange] = None
+    occurrence_end_date: Optional[DateRange] = None
+    visit_type: Optional[List[Concept]] = None
+    visit_type_cs: Optional[ConceptSetSelection] = Field(None, alias="VisitTypeCS")
+    visit_type_exclude: bool = False
+    visit_source_concept: Optional[int] = None
+    visit_length: Optional[NumericRange] = None
+    age: Optional[NumericRange] = None
+    gender: Optional[List[Concept]] = None
+    gender_cs: Optional[ConceptSetSelection] = Field(None, alias="GenderCS")
+    provider_specialty: Optional[List[Concept]] = None
+    provider_specialty_cs: Optional[ConceptSetSelection] = Field(
+        None, alias="ProviderSpecialtyCS"
+    )
+    place_of_service: Optional[List[Concept]] = None
+    place_of_service_cs: Optional[ConceptSetSelection] = Field(
+        None, alias="PlaceOfServiceCS"
+    )
+    place_of_service_location: Optional[int] = None
+
+
 Criteria = Annotated[
-    Union[ConditionOccurrence, DrugExposure],
+    Union[ConditionOccurrence, DrugExposure, VisitOccurrence],
     Field(discriminator="criteria_type"),
     BeforeValidator(criteria_deserializer),
 ]
@@ -170,6 +196,7 @@ WindowedCriteria.model_rebuild()
 BaseCriteria.model_rebuild()
 ConditionOccurrence.model_rebuild()
 DrugExposure.model_rebuild()
+VisitOccurrence.model_rebuild()
 CriteriaGroup.model_rebuild()
 
 
