@@ -1,6 +1,6 @@
 from omop_cohort_builder.domain import (
     CollapseSettings,
-    CensorWindow,
+    Period,
     DateOffset,
     CustomEra,
     EndStrategy,
@@ -19,12 +19,12 @@ def test_collapse_settings_serialization():
 
 
 def test_censor_window_serialization():
-    cw = CensorWindow(start_date="2000-04-01", end_date="2000-09-01")
+    cw = Period(start_date="2000-04-01", end_date="2000-09-01")
     dump = cw.model_dump(by_alias=True)
     assert dump["StartDate"] == "2000-04-01"
     assert dump["EndDate"] == "2000-09-01"
 
-    cw_empty = CensorWindow()
+    cw_empty = Period()
     dump_empty = cw_empty.model_dump(by_alias=True, exclude_none=True)
     assert dump_empty == {}
 

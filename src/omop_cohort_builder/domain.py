@@ -689,7 +689,7 @@ class ConceptSet(CirceCamelModel):  # camelCase
     expression: Union[ConceptSetExpression, Any]
 
 
-class Limit(CirceModel):
+class ResultLimit(CirceModel):
     type: str = "First"  # First, All
 
 
@@ -700,23 +700,18 @@ class ObservationWindow(CirceModel):
 
 
 class PrimaryCriteria(CirceModel):
-    # Allows CorelatedCriteria OR raw Criteria
-    criteria_list: List[Union[CorelatedCriteria, Criteria]] = Field(
-        default_factory=list
+    criteria_list: List[Criteria] = Field(default_factory=list, alias="CriteriaList")
+    observation_window: Optional[ObservationWindow] = Field(
+        default=None, alias="ObservationWindow"
     )
-    observation_window: Optional[ObservationWindow] = None
-    primary_window: Optional[Window] = None
-    primary_criteria_limit: Optional[Limit] = None
+    primary_limit: ResultLimit = Field(
+        default_factory=ResultLimit, alias="PrimaryCriteriaLimit"
+    )
 
 
 class CollapseSettings(CirceModel):
     collapse_type: str = "ERA"
     era_pad: int = 0
-
-
-class CensorWindow(CirceModel):
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
 
 
 # EndStrategy models
@@ -748,17 +743,30 @@ class InclusionRule(CirceCamelModel):
 
 
 class CohortExpression(CirceModel):
-    concept_sets: List[ConceptSet] = Field(default_factory=list)
-    primary_criteria: Optional[PrimaryCriteria] = None
-    additional_criteria: Optional[CriteriaGroup] = None
-    qualified_limit: Optional[Any] = None
-    expression_limit: Optional[Any] = None
-    inclusion_rules: List[InclusionRule] = Field(default_factory=list)
-    end_strategy: Optional[EndStrategy] = None
-    censoring_criteria: List[Any] = Field(default_factory=list)
-    collapse_settings: Optional[CollapseSettings] = None
-    censor_window: Optional[CensorWindow] = None  # Added for consistency
     cdm_version_range: Optional[str] = Field(default=None, alias="cdmVersionRange")
+    title: Optional[str] = Field(default=None, alias="Title")
+    primary_criteria: PrimaryCriteria = Field(alias="PrimaryCriteria")
+    additional_criteria: Optional[CriteriaGroup] = Field(
+        default=None, alias="AdditionalCriteria"
+    )
+    concept_sets: List[ConceptSet] = Field(default_factory=list, alias="ConceptSets")
+    qualified_limit: ResultLimit = Field(
+        default_factory=ResultLimit, alias="QualifiedLimit"
+    )
+    expression_limit: ResultLimit = Field(
+        default_factory=ResultLimit, alias="ExpressionLimit"
+    )
+    inclusion_rules: List[InclusionRule] = Field(
+        default_factory=list, alias="InclusionRules"
+    )
+    end_strategy: Optional[EndStrategy] = Field(default=None, alias="EndStrategy")
+    censoring_criteria: List[Criteria] = Field(
+        default_factory=list, alias="CensoringCriteria"
+    )
+    collapse_settings: CollapseSettings = Field(
+        default_factory=CollapseSettings, alias="CollapseSettings"
+    )
+    censor_window: Optional[Period] = Field(default=None, alias="CensorWindow")
 
 
 # Resolve forward references
