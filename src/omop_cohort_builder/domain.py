@@ -306,6 +306,23 @@ class Observation(WrappedCriteriaMixin, BaseCriteria):
     )
 
 
+class ConditionEra(WrappedCriteriaMixin, BaseCriteria):
+    criteria_type: Literal["ConditionEra"] = Field(default="ConditionEra", exclude=True)
+
+    codeset_id: Optional[int] = Field(default=None, alias="CodesetId")
+    first: Optional[bool] = Field(default=None, alias="First")
+    era_start_date: Optional[DateRange] = Field(default=None, alias="EraStartDate")
+    era_end_date: Optional[DateRange] = Field(default=None, alias="EraEndDate")
+    occurrence_count: Optional[NumericRange] = Field(
+        default=None, alias="OccurrenceCount"
+    )
+    era_length: Optional[NumericRange] = Field(default=None, alias="EraLength")
+    age_at_start: Optional[NumericRange] = Field(default=None, alias="AgeAtStart")
+    age_at_end: Optional[NumericRange] = Field(default=None, alias="AgeAtEnd")
+    gender: Optional[List[Concept]] = Field(default=None, alias="Gender")
+    gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
+
+
 Criteria = Annotated[
     Union[
         ConditionOccurrence,
@@ -315,6 +332,7 @@ Criteria = Annotated[
         Measurement,
         Death,
         Observation,
+        ConditionEra,
     ],
     Field(discriminator="criteria_type"),
     BeforeValidator(criteria_deserializer),
