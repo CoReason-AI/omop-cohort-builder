@@ -484,6 +484,41 @@ class VisitDetail(WrappedCriteriaMixin, BaseCriteria):
     )
 
 
+class PayerPlanPeriod(WrappedCriteriaMixin, BaseCriteria):
+    criteria_type: Literal["PayerPlanPeriod"] = Field(
+        default="PayerPlanPeriod", exclude=True
+    )
+
+    first: Optional[bool] = Field(default=None, alias="First")
+    period_start_date: Optional[DateRange] = Field(
+        default=None, alias="PeriodStartDate"
+    )
+    period_end_date: Optional[DateRange] = Field(default=None, alias="PeriodEndDate")
+    user_defined_period: Optional[Period] = Field(
+        default=None, alias="UserDefinedPeriod"
+    )
+    period_length: Optional[NumericRange] = Field(default=None, alias="PeriodLength")
+    age_at_start: Optional[NumericRange] = Field(default=None, alias="AgeAtStart")
+    age_at_end: Optional[NumericRange] = Field(default=None, alias="AgeAtEnd")
+    gender: Optional[List[Concept]] = Field(default=None, alias="Gender")
+    gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
+
+    payer_concept: Optional[int] = Field(default=None, alias="PayerConcept")
+    plan_concept: Optional[int] = Field(default=None, alias="PlanConcept")
+    sponsor_concept: Optional[int] = Field(default=None, alias="SponsorConcept")
+    stop_reason_concept: Optional[int] = Field(default=None, alias="StopReasonConcept")
+    payer_source_concept: Optional[int] = Field(
+        default=None, alias="PayerSourceConcept"
+    )
+    plan_source_concept: Optional[int] = Field(default=None, alias="PlanSourceConcept")
+    sponsor_source_concept: Optional[int] = Field(
+        default=None, alias="SponsorSourceConcept"
+    )
+    stop_reason_source_concept: Optional[int] = Field(
+        default=None, alias="StopReasonSourceConcept"
+    )
+
+
 Criteria = Annotated[
     Union[
         ConditionOccurrence,
@@ -500,6 +535,7 @@ Criteria = Annotated[
         DeviceExposure,
         Specimen,
         VisitDetail,
+        PayerPlanPeriod,
     ],
     Field(discriminator="criteria_type"),
     BeforeValidator(criteria_deserializer),
