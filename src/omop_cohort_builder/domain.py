@@ -198,9 +198,7 @@ class ProcedureOccurrence(WrappedCriteriaMixin, BaseCriteria):
     )
     procedure_type_exclude: bool = False
     modifier: Optional[List[Concept]] = None
-    modifier_cs: Optional[ConceptSetSelection] = Field(
-        default=None, alias="ModifierCS"
-    )
+    modifier_cs: Optional[ConceptSetSelection] = Field(default=None, alias="ModifierCS")
     quantity: Optional[NumericRange] = None
     procedure_source_concept: Optional[int] = None
     age: Optional[NumericRange] = None
