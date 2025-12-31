@@ -2,6 +2,7 @@ from typing import List, Optional, Union, Any, Annotated, Dict, Literal
 from pydantic import Field, BeforeValidator, model_serializer
 from omop_cohort_builder.base import (
     CirceModel,
+    CirceCamelModel,
     TextFilter,
     NumericRange,
     DateRange,
@@ -26,6 +27,23 @@ class Concept(CirceModel):
     domain_id: Optional[str] = Field(None, alias="DOMAIN_ID")
     vocabulary_id: Optional[str] = Field(None, alias="VOCABULARY_ID")
     concept_class_id: Optional[str] = Field(None, alias="CONCEPT_CLASS_ID")
+
+
+class ConceptSetItem(CirceCamelModel):
+    concept: Concept
+    is_excluded: bool = False
+    include_descendants: bool = False
+    include_mapped: bool = False
+
+
+class ConceptSetExpression(CirceCamelModel):
+    items: List[ConceptSetItem] = Field(default_factory=list)
+
+
+class ConceptSet(CirceCamelModel):
+    id: int
+    name: str
+    expression: ConceptSetExpression
 
 
 class ConceptSetSelection(CirceModel):
@@ -63,15 +81,10 @@ class WrappedCriteriaMixin(BaseCriteria):
     @model_serializer(mode="wrap")
     def serialize_wrapper(self, handler) -> Dict[str, Any]:
         data = handler(self)
-        # We need to remove the discriminator field from the output if it's there.
-        # Since we use by_alias=True usually, it will be "CriteriaType".
-        # If by_alias=False, it is "criteria_type".
         if "CriteriaType" in data:
             del data["CriteriaType"]
         if "criteria_type" in data:
             del data["criteria_type"]
-
-        # Wrap it in the class name (or alias if I can get it, but class name matches requirement)
         return {self.criteria_type: data}
 
 
@@ -191,13 +204,69 @@ class CriteriaGroup(CirceModel):
     groups: List["CriteriaGroup"] = Field(default_factory=list)
 
 
-# Update forward refs
-WindowedCriteria.model_rebuild()
-BaseCriteria.model_rebuild()
-ConditionOccurrence.model_rebuild()
-DrugExposure.model_rebuild()
-VisitOccurrence.model_rebuild()
-CriteriaGroup.model_rebuild()
+# -- Cohort Expression Dependencies --
+
+
+class CollapseSettings(CirceModel):
+    collapse_type: str
+    era_pad: int
+
+
+class CensorWindow(CirceModel):
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+
+# EndStrategy Infrastruture (Polymorphic)
+class WrappedStrategyMixin(CirceModel):
+    """Similar to WrappedCriteriaMixin but for EndStrategy"""
+
+    @model_serializer(mode="wrap")
+    def serialize_wrapper(self, handler) -> Dict[str, Any]:
+        data = handler(self)
+        if "StrategyType" in data:
+            del data["StrategyType"]
+        if "strategy_type" in data:
+            del data["strategy_type"]
+        return {self.strategy_type: data}
+
+
+class DateOffset(WrappedStrategyMixin):
+    strategy_type: Literal["DateOffset"] = "DateOffset"
+    date_field: str
+    offset: int
+
+
+class CustomEra(WrappedStrategyMixin):
+    strategy_type: Literal["CustomEra"] = "CustomEra"
+    drug_codeset_id: int
+    gap_days: int
+    offset: int
+    days_supply_override: Optional[int] = None
+
+
+# EndStrategy Helper for Polymorphism
+def end_strategy_deserializer(v: Any) -> Any:
+    if isinstance(v, dict) and len(v) == 1:
+        key = next(iter(v))
+        if isinstance(v[key], dict):
+            new_v = v[key].copy()
+            new_v["strategy_type"] = key
+            return new_v
+    return v
+
+
+EndStrategy = Annotated[
+    Union[DateOffset, CustomEra],
+    Field(discriminator="strategy_type"),
+    BeforeValidator(end_strategy_deserializer),
+]
+
+
+class InclusionRule(CirceCamelModel):
+    name: str
+    description: Optional[str] = None
+    expression: CriteriaGroup
 
 
 class PrimaryCriteria(CirceModel):
@@ -206,3 +275,31 @@ class PrimaryCriteria(CirceModel):
     primary_limit: ResultLimit = Field(
         default_factory=ResultLimit, alias="PrimaryCriteriaLimit"
     )
+
+
+class CohortExpression(CirceModel):
+    title: Optional[str] = None
+    primary_criteria: PrimaryCriteria
+    additional_criteria: Optional[CriteriaGroup] = None
+    concept_sets: List[ConceptSet] = Field(default_factory=list)
+    qualified_limit: ResultLimit = Field(default_factory=ResultLimit)
+    expression_limit: ResultLimit = Field(default_factory=ResultLimit)
+    inclusion_rules: List[InclusionRule] = Field(default_factory=list)
+    end_strategy: Optional[EndStrategy] = None
+    censoring_criteria: List[Criteria] = Field(default_factory=list)
+    collapse_settings: CollapseSettings = Field(
+        default_factory=lambda: CollapseSettings(collapse_type="ERA", era_pad=0)
+    )
+    censor_window: CensorWindow = Field(default_factory=CensorWindow)
+    cdm_version_range: Optional[str] = Field(None, alias="cdmVersionRange")
+
+
+# Update forward refs
+WindowedCriteria.model_rebuild()
+BaseCriteria.model_rebuild()
+ConditionOccurrence.model_rebuild()
+DrugExposure.model_rebuild()
+VisitOccurrence.model_rebuild()
+CriteriaGroup.model_rebuild()
+InclusionRule.model_rebuild()
+CohortExpression.model_rebuild()

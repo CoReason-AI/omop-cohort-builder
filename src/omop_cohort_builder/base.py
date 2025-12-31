@@ -7,9 +7,22 @@ def to_pascal(snake: str) -> str:
     return "".join(word.capitalize() for word in snake.split("_"))
 
 
+def to_camel(snake: str) -> str:
+    if not snake:
+        return snake
+    first, *others = snake.split("_")
+    return first + "".join(word.capitalize() for word in others)
+
+
 class CirceModel(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_pascal, populate_by_name=True, use_enum_values=True
+    )
+
+
+class CirceCamelModel(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel, populate_by_name=True, use_enum_values=True
     )
 
 
