@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import select
 from sqlalchemy.dialects import postgresql
 
 from omop_cohort_builder.builders import QueryBuilder
