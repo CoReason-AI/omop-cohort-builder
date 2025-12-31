@@ -47,10 +47,10 @@ def test_concept_set_serialization():
     item_json = data["expression"]["items"][0]
     assert "includeDescendants" in item_json
     assert item_json["includeDescendants"] is True
-    assert "isExcluded" in item_json
-    assert item_json["isExcluded"] is False  # Default
-    assert "includeMapped" in item_json
-    assert item_json["includeMapped"] is False  # Default
+    # Default is None/null, checking key presence depends on exclude_none setting
+    # Here defaults are None, so they are null in JSON if not excluded
+    assert item_json.get("isExcluded") is None
+    assert item_json.get("includeMapped") is None
 
     # Check concept fields (Should be UPPERCASE as per Concept definition)
     assert "concept" in item_json

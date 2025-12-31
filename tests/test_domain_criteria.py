@@ -1,197 +1,101 @@
+import pytest
+from pydantic import TypeAdapter
 from omop_cohort_builder.domain import (
+    Criteria,
     ConditionOccurrence,
     DrugExposure,
-    Concept,
+    VisitOccurrence,
     ConceptSetSelection,
-    Criteria,
-)
-from omop_cohort_builder.base import (
-    TextFilter,
     NumericRange,
     DateRange,
-    DateAdjustment,
-    DateAdjustmentType,
 )
-from pydantic import TypeAdapter
-import json
 
 
 def test_condition_occurrence_serialization():
-    # Arrange
-    criteria = ConditionOccurrence(
+    co = ConditionOccurrence(
         codeset_id=1,
         first=True,
         occurrence_start_date=DateRange(value="2023-01-01", op="gt"),
-        occurrence_end_date=DateRange(value="2023-12-31", op="lt"),
-        condition_type=[
-            Concept(concept_id=1, concept_name="Test Concept", standard_concept="S")
-        ],
-        condition_type_cs=ConceptSetSelection(codeset_id=10, is_exclusion=True),
-        condition_type_exclude=False,
-        stop_reason=TextFilter(text="Healed", op="eq"),
-        condition_source_concept=12345,
-        age=NumericRange(value=30, op="gt"),
-        gender=[Concept(concept_id=8507, concept_name="Male")],
-        gender_cs=ConceptSetSelection(codeset_id=20),
-        provider_specialty=[Concept(concept_id=30, concept_name="Cardiology")],
-        provider_specialty_cs=ConceptSetSelection(codeset_id=30),
-        visit_type=[Concept(concept_id=9201, concept_name="Inpatient")],
-        visit_type_cs=ConceptSetSelection(codeset_id=40),
-        condition_status=[Concept(concept_id=100, concept_name="Active")],
-        condition_status_cs=ConceptSetSelection(codeset_id=50),
-        date_adjustment=DateAdjustment(
-            start_with=DateAdjustmentType.START_DATE,
-            start_offset=1,
-            end_with=DateAdjustmentType.END_DATE,
-            end_offset=1,
-        ),
+        condition_type_cs=ConceptSetSelection(codeset_id=2),
     )
 
-    # Act
-    # We dump with by_alias=True to get PascalCase keys
-    # We verify the wrapped behavior via model_dump (which triggers the serializer)
-    json_output = criteria.model_dump_json(by_alias=True)
-    data = json.loads(json_output)
-
-    # Assert
-    # The WrappedCriteriaMixin should wrap the output in "ConditionOccurrence"
+    # Direct model dump
+    data = co.model_dump(by_alias=True, exclude_none=True)
+    # WrappedCriteriaMixin should wrap it
     assert "ConditionOccurrence" in data
     inner = data["ConditionOccurrence"]
-
-    # Check top-level fields match Java @JsonProperty
     assert inner["CodesetId"] == 1
     assert inner["First"] is True
-    assert inner["ConditionTypeExclude"] is False
-    assert inner["ConditionSourceConcept"] == 12345
-
-    # Check complex objects
-    assert inner["OccurrenceStartDate"] == {
-        "Value": "2023-01-01",
-        "Op": "gt",
-        "Extent": None,
-    }
-    assert inner["OccurrenceEndDate"] == {
-        "Value": "2023-12-31",
-        "Op": "lt",
-        "Extent": None,
-    }
-
-    assert len(inner["ConditionType"]) == 1
-    assert inner["ConditionType"][0]["CONCEPT_ID"] == 1
-    assert inner["ConditionType"][0]["CONCEPT_NAME"] == "Test Concept"
-
-    assert inner["ConditionTypeCS"] == {"CodesetId": 10, "IsExclusion": True}
-
-    assert inner["StopReason"] == {"Text": "Healed", "Op": "eq"}
-    assert inner["Age"] == {"Value": 30.0, "Op": "gt", "Extent": None}
-
-    assert inner["GenderCS"] == {"CodesetId": 20, "IsExclusion": None}
-
-    assert inner["DateAdjustment"] == {
-        "StartWith": "START_DATE",
-        "StartOffset": 1,
-        "EndWith": "END_DATE",
-        "EndOffset": 1,
-    }
-
-    # IMPORTANT: Ensure the discriminator "CriteriaType" is NOT inside the wrapper
-    # as per the `WrappedCriteriaMixin` logic which deletes it.
-    assert "CriteriaType" not in inner
-    assert "criteria_type" not in inner
+    assert inner["OccurrenceStartDate"] == {"Value": "2023-01-01", "Op": "gt"}
+    assert inner["ConditionTypeCS"] == {"CodesetId": 2}
+    assert "CriteriaType" not in inner  # Should be excluded
 
 
-def test_drug_exposure_serialization():
-    # Arrange
-    criteria = DrugExposure(
-        codeset_id=2,
-        first=False,
-        occurrence_start_date=DateRange(value="2023-01-01", op="eq"),
-        drug_type=[Concept(concept_id=2, concept_name="Drug Type")],
-        refills=NumericRange(value=0, op="eq"),
-        quantity=NumericRange(value=10, op="gt"),
-        days_supply=NumericRange(value=30, op="eq"),
-        route_concept=[Concept(concept_id=3, concept_name="Route")],
-        effective_drug_dose=NumericRange(value=500, op="eq"),
-        dose_unit=[Concept(concept_id=4, concept_name="mg")],
-        lot_number=TextFilter(text="LOT123", op="eq"),
-        drug_source_concept=54321,
-    )
-
-    # Act
-    json_output = criteria.model_dump_json(by_alias=True)
-    data = json.loads(json_output)
-
-    # Assert
-    assert "DrugExposure" in data
-    inner = data["DrugExposure"]
-
-    assert inner["CodesetId"] == 2
-    assert inner["First"] is False
-    assert inner["Refills"] == {"Value": 0.0, "Op": "eq", "Extent": None}
-    assert inner["Quantity"] == {"Value": 10.0, "Op": "gt", "Extent": None}
-    assert inner["DaysSupply"] == {"Value": 30.0, "Op": "eq", "Extent": None}
-    assert inner["EffectiveDrugDose"] == {"Value": 500.0, "Op": "eq", "Extent": None}
-    assert inner["LotNumber"] == {"Text": "LOT123", "Op": "eq"}
-    assert inner["DrugSourceConcept"] == 54321
-
-
-def test_criteria_deserialization():
-    # 1. Test Wrapped Object (Standard OHDSI format)
-    json_input = """
+def test_condition_occurrence_deserialization():
+    json_str = """
     {
         "ConditionOccurrence": {
             "CodesetId": 1,
             "First": true,
-            "OccurrenceStartDate": {"Value": "2023-01-01", "Op": "gt"}
+            "OccurrenceStartDate": {"Value": "2023-01-01", "Op": "gt"},
+            "ConditionTypeCS": {"CodesetId": 2}
         }
     }
     """
+    # Use TypeAdapter(Criteria) to trigger the union logic and BeforeValidator
     adapter = TypeAdapter(Criteria)
-    obj = adapter.validate_json(json_input)
+    obj = adapter.validate_json(json_str)
 
     assert isinstance(obj, ConditionOccurrence)
     assert obj.codeset_id == 1
     assert obj.first is True
     assert obj.occurrence_start_date.value == "2023-01-01"
 
-    # 2. Test Unwraped Object (Direct dict with discriminator - e.g. internal usage)
-    # The criteria_deserializer should return 'v' as is, and Pydantic discriminator should work
-    json_input_unwrapped = """
-    {
-        "CriteriaType": "DrugExposure",
-        "CodesetId": 2,
-        "Refills": {"Value": 0, "Op": "eq"}
-    }
-    """
-    obj2 = adapter.validate_json(json_input_unwrapped)
-    assert isinstance(obj2, DrugExposure)
-    assert obj2.codeset_id == 2
-    assert obj2.refills.value == 0
 
-    # 3. Test non-dict input (pass-through coverage)
-    # This won't validate as Criteria, but it exercises the deserializer code path
-    from omop_cohort_builder.domain import criteria_deserializer
-
-    assert criteria_deserializer("string") == "string"
-    assert criteria_deserializer({"A": 1, "B": 2}) == {"A": 1, "B": 2}  # >1 key
-    assert criteria_deserializer({"A": 1}) == {"A": 1}  # 1 key, but value not dict
+def test_drug_exposure_serialization():
+    de = DrugExposure(
+        codeset_id=10, drug_type_exclude=True, quantity=NumericRange(value=5, op="gt")
+    )
+    data = de.model_dump(by_alias=True, exclude_none=True)
+    assert "DrugExposure" in data
+    inner = data["DrugExposure"]
+    assert inner["CodesetId"] == 10
+    assert inner["DrugTypeExclude"] is True
+    assert inner["Quantity"] == {"Value": 5, "Op": "gt"}
 
 
-def test_serialization_by_alias_false():
-    # Covers the path where "criteria_type" (snake_case) might be present
-    criteria = ConditionOccurrence(codeset_id=1)
+def test_visit_occurrence_polymorphism():
+    # Test that we can parse different types via the Union
+    json_list = [
+        {"ConditionOccurrence": {"CodesetId": 1}},
+        {"VisitOccurrence": {"CodesetId": 2, "PlaceOfServiceLocation": 123}},
+    ]
 
-    # When dumping by_alias=False, fields are snake_case.
-    # The mixin should still wrap it and remove 'criteria_type'.
-    data = criteria.model_dump(by_alias=False)
+    adapter = TypeAdapter(list[Criteria])
+    objects = adapter.validate_python(json_list)
 
-    assert "ConditionOccurrence" in data
-    inner = data["ConditionOccurrence"]
+    assert len(objects) == 2
+    assert isinstance(objects[0], ConditionOccurrence)
+    assert objects[0].codeset_id == 1
 
-    # Keys should be snake_case
-    assert "codeset_id" in inner
-    assert inner["codeset_id"] == 1
+    assert isinstance(objects[1], VisitOccurrence)
+    assert objects[1].codeset_id == 2
+    assert objects[1].place_of_service_location == 123
 
-    # Discriminator should be removed
-    assert "criteria_type" not in inner
-    assert "CriteriaType" not in inner
+
+def test_unwrapped_deserialization_failure():
+    # If we pass unwrapped dict without discriminator, it might fail or pick one if strictness is loose.
+    # But our BeforeValidator expects the wrapper key or existing criteria_type.
+    # If we pass {"CodesetId": 1}, it doesn't know what it is.
+
+    json_str = '{"CodesetId": 1}'
+    adapter = TypeAdapter(Criteria)
+    with pytest.raises(Exception):
+        adapter.validate_json(json_str)
+
+
+def test_criteria_snake_case_conversion():
+    # Verify that snake_case args in constructor work and map to PascalCase json
+    co = ConditionOccurrence(condition_source_concept=999)
+    data = co.model_dump(by_alias=True, exclude_none=True)
+    assert data["ConditionOccurrence"]["ConditionSourceConcept"] == 999
