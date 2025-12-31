@@ -4,8 +4,17 @@ from functools import singledispatchmethod
 
 from sqlalchemy import select, Select
 
-from omop_cohort_builder.domain import ConditionOccurrence, DrugExposure, Criteria
-from omop_cohort_builder.schema import condition_occurrence, drug_exposure
+from omop_cohort_builder.domain import (
+    ConditionOccurrence,
+    DrugExposure,
+    VisitOccurrence,
+    Criteria,
+)
+from omop_cohort_builder.schema import (
+    condition_occurrence,
+    drug_exposure,
+    visit_occurrence,
+)
 
 
 class QueryBuilder:
@@ -111,8 +120,78 @@ class QueryBuilder:
 
         return query
 
+    @build_criteria.register
+    def _build_visit_occurrence(self, criteria: VisitOccurrence) -> Select:
+        """
+        Builds a SQL query for VisitOccurrence criteria.
+        """
+        query = select(visit_occurrence)
+
+        # 1. Visit Type (List of Concepts) -> visit_type_concept_id IN (...)
+        if criteria.visit_type:
+            concept_ids = [c.concept_id for c in criteria.visit_type]
+            query = query.where(
+                visit_occurrence.c.visit_type_concept_id.in_(concept_ids)
+            )
+
+        # 2. Visit Source Concept -> visit_source_concept_id = ...
+        if criteria.visit_source_concept is not None:
+            query = query.where(
+                visit_occurrence.c.visit_source_concept_id
+                == criteria.visit_source_concept
+            )
+
+        # 3. Occurrence Start Date -> visit_start_date
+        if criteria.occurrence_start_date:
+            query = self._apply_date_filter(
+                query,
+                visit_occurrence.c.visit_start_date,
+                criteria.occurrence_start_date,
+            )
+
+        # 4. Occurrence End Date -> visit_end_date
+        if criteria.occurrence_end_date:
+            query = self._apply_date_filter(
+                query, visit_occurrence.c.visit_end_date, criteria.occurrence_end_date
+            )
+
+        # 5. Visit Length -> (visit_end_date - visit_start_date)
+        if criteria.visit_length:
+            length_expr = (
+                visit_occurrence.c.visit_end_date - visit_occurrence.c.visit_start_date
+            )
+            query = self._apply_numeric_filter(
+                query, length_expr, criteria.visit_length
+            )
+
+        return query
+
     def _apply_numeric_filter(self, query, column, criteria_range):
         """Helper to apply numeric range filters."""
+        if criteria_range.op == "gt":
+            return query.where(column > criteria_range.value)
+        elif criteria_range.op == "lt":
+            return query.where(column < criteria_range.value)
+        elif criteria_range.op == "eq":
+            return query.where(column == criteria_range.value)
+        elif criteria_range.op == "gte":
+            return query.where(column >= criteria_range.value)
+        elif criteria_range.op == "lte":
+            return query.where(column <= criteria_range.value)
+        elif criteria_range.op == "bt":  # Between
+            if criteria_range.extent is not None:
+                return query.where(
+                    column.between(criteria_range.value, criteria_range.extent)
+                )
+        elif criteria_range.op == "!bt":  # Not Between
+            if criteria_range.extent is not None:
+                return query.where(
+                    ~column.between(criteria_range.value, criteria_range.extent)
+                )
+        return query
+
+    def _apply_date_filter(self, query, column, criteria_range):
+        """Helper to apply date range filters."""
         if criteria_range.op == "gt":
             return query.where(column > criteria_range.value)
         elif criteria_range.op == "lt":
