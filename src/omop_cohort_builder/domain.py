@@ -1,6 +1,6 @@
 from typing import List, Optional, Union, Any, Annotated, Dict, Literal
 from pydantic import Field, BeforeValidator, model_serializer
-from omop_cohort_builder.core import (
+from omop_cohort_builder.base import (
     CirceModel,
     TextFilter,
     NumericRange,
