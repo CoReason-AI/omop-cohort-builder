@@ -184,8 +184,38 @@ class VisitOccurrence(WrappedCriteriaMixin, BaseCriteria):
     )
 
 
+class ProcedureOccurrence(WrappedCriteriaMixin, BaseCriteria):
+    criteria_type: Literal["ProcedureOccurrence"] = Field(
+        default="ProcedureOccurrence", exclude=True
+    )
+
+    codeset_id: Optional[int] = None
+    first: Optional[bool] = None
+    occurrence_start_date: Optional[DateRange] = None
+    procedure_type: Optional[List[Concept]] = None
+    procedure_type_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="ProcedureTypeCS"
+    )
+    procedure_type_exclude: bool = False
+    modifier: Optional[List[Concept]] = None
+    modifier_cs: Optional[ConceptSetSelection] = Field(default=None, alias="ModifierCS")
+    quantity: Optional[NumericRange] = None
+    procedure_source_concept: Optional[int] = None
+    age: Optional[NumericRange] = None
+    gender: Optional[List[Concept]] = None
+    gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
+    provider_specialty: Optional[List[Concept]] = None
+    provider_specialty_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="ProviderSpecialtyCS"
+    )
+    visit_type: Optional[List[Concept]] = None
+    visit_type_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="VisitTypeCS"
+    )
+
+
 Criteria = Annotated[
-    Union[ConditionOccurrence, DrugExposure, VisitOccurrence],
+    Union[ConditionOccurrence, DrugExposure, VisitOccurrence, ProcedureOccurrence],
     Field(discriminator="criteria_type"),
     BeforeValidator(criteria_deserializer),
 ]
