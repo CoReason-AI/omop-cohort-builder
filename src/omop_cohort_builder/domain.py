@@ -17,6 +17,39 @@ from omop_cohort_builder.base import (
     Period,
 )
 
+"""
+Domain models for OHDSI Circe Cohort Definition.
+
+Architecture Note:
+------------------
+These models are designed to be functionally equivalent to the Java `org.ohdsi.circe.cohortdefinition` classes.
+We use Pydantic V2 to handle serialization/deserialization with strict type safety.
+
+Handling @JsonProperty and Case Conventions:
+--------------------------------------------
+1. **Snake Case vs PascalCase**:
+   - Python uses `snake_case` for attribute names (e.g., `condition_source_concept`).
+   - JSON (Circe standard) uses `PascalCase` (e.g., `ConditionSourceConcept`) for most Criteria fields.
+   - We use `CirceModel` (defined in `base.py`) which configures Pydantic to automatically alias fields to `PascalCase`
+     using `alias_generator=to_pascal`.
+
+2. **Concept Sets & Inclusion Rules**:
+   - These structures use `camelCase` in JSON (e.g., `items`, `conceptSetId`).
+   - We use `CirceCamelModel` for these specific classes (e.g., `ConceptSet`, `InclusionRule`) to enforce `camelCase`.
+
+3. **Field Aliases**:
+   - Explicit `Field(alias="...")` is used when the automatic generator would fail or produce incorrect results.
+     - Example: `condition_type_cs` would generate `ConditionTypeCs` (wrong) instead of `ConditionTypeCS` (correct).
+     - Example: `codeset_id` in `ConditionEra` uses `CodesetId`.
+
+4. **Polymorphism (Wrapped Objects)**:
+   - Java uses `@JsonTypeInfo` to handle polymorphic lists (e.g., `List<Criteria>`).
+   - Circe often wraps these in a single-key object: `{"ConditionOccurrence": {...}}`.
+   - We use `Annotated[Union[...], Field(discriminator='criteria_type')]` combined with a `BeforeValidator` (`criteria_deserializer`)
+     to unwrap these structures into a flat dictionary with a discriminator field for Pydantic processing.
+   - We use `WrappedCriteriaMixin` with `@model_serializer(mode="wrap")` to re-wrap them during serialization.
+"""
+
 
 # --- Deserializer Helpers ---
 def criteria_deserializer(v: Any) -> Any:
