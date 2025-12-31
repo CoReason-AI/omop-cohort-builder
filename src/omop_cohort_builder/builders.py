@@ -11,6 +11,7 @@ from omop_cohort_builder.domain import (
     ProcedureOccurrence,
     Measurement,
     Observation,
+    DeviceExposure,
     Criteria,
 )
 from omop_cohort_builder.schema import (
@@ -20,6 +21,7 @@ from omop_cohort_builder.schema import (
     procedure_occurrence,
     measurement,
     observation,
+    device_exposure,
 )
 
 
@@ -56,6 +58,57 @@ class QueryBuilder:
             query = query.where(
                 condition_occurrence.c.condition_source_concept_id
                 == criteria.condition_source_concept
+            )
+
+        return query
+
+    @build_criteria.register
+    def _build_device_exposure(self, criteria: DeviceExposure) -> Select:
+        """
+        Builds a SQL query for DeviceExposure criteria.
+        """
+        query = select(device_exposure)
+
+        # 1. Device Type (List of Concepts) -> device_type_concept_id IN (...)
+        if criteria.device_type:
+            concept_ids = [c.concept_id for c in criteria.device_type]
+            query = query.where(
+                device_exposure.c.device_type_concept_id.in_(concept_ids)
+            )
+
+        # 2. Unique Device ID (TextFilter)
+        if criteria.unique_device_id:
+            query = self._apply_text_filter(
+                query, device_exposure.c.unique_device_id, criteria.unique_device_id
+            )
+
+        # 3. Quantity (NumericRange)
+        if criteria.quantity:
+            query = self._apply_numeric_filter(
+                query, device_exposure.c.quantity, criteria.quantity
+            )
+
+        # 4. Device Source Concept (int)
+        if criteria.device_source_concept is not None:
+            query = query.where(
+                device_exposure.c.device_source_concept_id
+                == criteria.device_source_concept
+            )
+
+        # 5. Occurrence Start Date -> device_exposure_start_date
+        if criteria.occurrence_start_date:
+            query = self._apply_date_filter(
+                query,
+                device_exposure.c.device_exposure_start_date,
+                criteria.occurrence_start_date,
+            )
+
+        # 6. Occurrence End Date -> device_exposure_end_date
+        if criteria.occurrence_end_date:
+            query = self._apply_date_filter(
+                query,
+                device_exposure.c.device_exposure_end_date,
+                criteria.occurrence_end_date,
             )
 
         return query
