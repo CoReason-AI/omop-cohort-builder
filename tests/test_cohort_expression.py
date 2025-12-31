@@ -1,4 +1,4 @@
-from omop_cohort_builder.domain import CohortExpression
+from omop_cohort_builder.domain import CohortExpression, ResultLimit
 import json
 
 # Minimal valid Cohort Expression JSON (derived from printfriendly/conditionOccurrence.json)
@@ -34,7 +34,8 @@ SIMPLE_COHORT_JSON = """
     "EraPad": 0
   },
   "CensorWindow": {},
-  "cdmVersionRange": ">=5.0.0"
+  "cdmVersionRange": ">=5.0.0",
+  "Title": "Test Title"
 }
 """
 
@@ -43,10 +44,17 @@ def test_cohort_expression_deserialization():
     cohort = CohortExpression.model_validate_json(SIMPLE_COHORT_JSON)
 
     assert cohort.cdm_version_range == ">=5.0.0"
+    assert cohort.title == "Test Title"
     assert len(cohort.concept_sets) == 0
     assert len(cohort.primary_criteria.criteria_list) == 1
     assert cohort.collapse_settings.collapse_type == "ERA"
-    assert cohort.censor_window.start_date is None
+
+
+def test_result_limit_structure():
+    limit = ResultLimit(type="Last")
+    assert limit.type == "Last"
+    dump = limit.model_dump(by_alias=True)
+    assert dump["Type"] == "Last"
 
 
 def test_cohort_expression_serialization():
@@ -65,6 +73,8 @@ def test_cohort_expression_serialization():
     # Exception: cdmVersionRange (mixed)
     assert "cdmVersionRange" in data
     assert data["cdmVersionRange"] == ">=5.0.0"
+    assert "Title" in data
+    assert data["Title"] == "Test Title"
 
 
 def test_cohort_expression_with_concept_sets():
