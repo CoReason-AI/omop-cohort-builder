@@ -5,7 +5,7 @@ from omop_cohort_builder.domain import (
     ConceptSetSelection,
     Criteria,
 )
-from omop_cohort_builder.core import (
+from omop_cohort_builder.base import (
     TextFilter,
     NumericRange,
     DateRange,
