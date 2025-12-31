@@ -345,6 +345,44 @@ class ObservationPeriod(WrappedCriteriaMixin, BaseCriteria):
     age_at_end: Optional[NumericRange] = Field(default=None, alias="AgeAtEnd")
 
 
+class DeviceExposure(WrappedCriteriaMixin, BaseCriteria):
+    criteria_type: Literal["DeviceExposure"] = Field(
+        default="DeviceExposure", exclude=True
+    )
+
+    codeset_id: Optional[int] = Field(default=None, alias="CodesetId")
+    first: Optional[bool] = Field(default=None, alias="First")
+    occurrence_start_date: Optional[DateRange] = Field(
+        default=None, alias="OccurrenceStartDate"
+    )
+    occurrence_end_date: Optional[DateRange] = Field(
+        default=None, alias="OccurrenceEndDate"
+    )
+    device_type: Optional[List[Concept]] = Field(default=None, alias="DeviceType")
+    device_type_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="DeviceTypeCS"
+    )
+    device_type_exclude: bool = Field(default=False, alias="DeviceTypeExclude")
+    unique_device_id: Optional[TextFilter] = Field(default=None, alias="UniqueDeviceId")
+    quantity: Optional[NumericRange] = Field(default=None, alias="Quantity")
+    device_source_concept: Optional[int] = Field(
+        default=None, alias="DeviceSourceConcept"
+    )
+    age: Optional[NumericRange] = Field(default=None, alias="Age")
+    gender: Optional[List[Concept]] = Field(default=None, alias="Gender")
+    gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
+    provider_specialty: Optional[List[Concept]] = Field(
+        default=None, alias="ProviderSpecialty"
+    )
+    provider_specialty_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="ProviderSpecialtyCS"
+    )
+    visit_type: Optional[List[Concept]] = Field(default=None, alias="VisitType")
+    visit_type_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="VisitTypeCS"
+    )
+
+
 Criteria = Annotated[
     Union[
         ConditionOccurrence,
@@ -356,6 +394,7 @@ Criteria = Annotated[
         Observation,
         ConditionEra,
         ObservationPeriod,
+        DeviceExposure,
     ],
     Field(discriminator="criteria_type"),
     BeforeValidator(criteria_deserializer),
