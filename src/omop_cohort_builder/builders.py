@@ -10,6 +10,7 @@ from omop_cohort_builder.domain import (
     VisitOccurrence,
     ProcedureOccurrence,
     Measurement,
+    Observation,
     Criteria,
 )
 from omop_cohort_builder.schema import (
@@ -18,6 +19,7 @@ from omop_cohort_builder.schema import (
     visit_occurrence,
     procedure_occurrence,
     measurement,
+    observation,
 )
 
 
@@ -54,6 +56,62 @@ class QueryBuilder:
             query = query.where(
                 condition_occurrence.c.condition_source_concept_id
                 == criteria.condition_source_concept
+            )
+
+        return query
+
+    @build_criteria.register
+    def _build_observation(self, criteria: Observation) -> Select:
+        """
+        Builds a SQL query for Observation criteria.
+        """
+        query = select(observation)
+
+        # 1. Observation Type (List of Concepts)
+        if criteria.observation_type:
+            concept_ids = [c.concept_id for c in criteria.observation_type]
+            query = query.where(
+                observation.c.observation_type_concept_id.in_(concept_ids)
+            )
+
+        # 2. Value As Number (NumericRange)
+        if criteria.value_as_number:
+            query = self._apply_numeric_filter(
+                query, observation.c.value_as_number, criteria.value_as_number
+            )
+
+        # 3. Value As String (TextFilter)
+        if criteria.value_as_string:
+            query = self._apply_text_filter(
+                query, observation.c.value_as_string, criteria.value_as_string
+            )
+
+        # 4. Value As Concept (List of Concepts)
+        if criteria.value_as_concept:
+            concept_ids = [c.concept_id for c in criteria.value_as_concept]
+            query = query.where(observation.c.value_as_concept_id.in_(concept_ids))
+
+        # 5. Qualifier (List of Concepts)
+        if criteria.qualifier:
+            concept_ids = [c.concept_id for c in criteria.qualifier]
+            query = query.where(observation.c.qualifier_concept_id.in_(concept_ids))
+
+        # 6. Unit (List of Concepts)
+        if criteria.unit:
+            concept_ids = [c.concept_id for c in criteria.unit]
+            query = query.where(observation.c.unit_concept_id.in_(concept_ids))
+
+        # 7. Observation Source Concept (int)
+        if criteria.observation_source_concept is not None:
+            query = query.where(
+                observation.c.observation_source_concept_id
+                == criteria.observation_source_concept
+            )
+
+        # 8. Occurrence Start Date -> observation_date
+        if criteria.occurrence_start_date:
+            query = self._apply_date_filter(
+                query, observation.c.observation_date, criteria.occurrence_start_date
             )
 
         return query
