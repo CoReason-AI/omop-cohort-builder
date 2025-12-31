@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Union, List, Optional, ForwardRef, Dict, Any, Literal, Annotated
+from typing import Union, List, Optional, Dict, Any, Literal, Annotated
 
 from pydantic import Field, model_serializer, BeforeValidator
 
@@ -15,9 +15,6 @@ from omop_cohort_builder.base import (
     ConceptSetSelection,
     DateAdjustment,
 )
-
-# Forward reference for recursion
-CriteriaGroup = ForwardRef("CriteriaGroup")
 
 
 # --- Deserializer Helpers ---
@@ -43,13 +40,13 @@ def end_strategy_deserializer(v: Any) -> Any:
     """
     if isinstance(v, dict) and len(v) == 1:
         key = next(iter(v))
-        if isinstance(v[key], dict):
+        if isinstance(v[key], dict):  # pragma: no branch
             new_dict = v[key].copy()
             if "strategy_type" not in new_dict:
                 new_dict["strategy_type"] = key
             return new_dict
-        return v  # pragma: no cover
-    return v  # pragma: no cover
+        return v
+    return v
 
 
 class BaseCriteria(CirceModel):
