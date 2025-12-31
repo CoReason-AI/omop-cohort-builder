@@ -77,8 +77,8 @@ class Period(CirceModel):
     Java: org.ohdsi.circe.cohortdefinition.Period
     """
 
-    start_date: str
-    end_date: str
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
 
 
 class Concept(BaseModel):
