@@ -12,6 +12,7 @@ from omop_cohort_builder.domain import (
     Measurement,
     Criteria,
 )
+from omop_cohort_builder.base import RangeType
 from omop_cohort_builder.schema import (
     condition_occurrence,
     drug_exposure,
@@ -316,51 +317,57 @@ class QueryBuilder:
 
     def _apply_numeric_filter(self, query, column, criteria_range):
         """Helper to apply numeric range filters."""
-        if criteria_range.op == "gt":
+        op = criteria_range.op
+        if op == RangeType.GT:
             return query.where(column > criteria_range.value)
-        elif criteria_range.op == "lt":
+        elif op == RangeType.LT:
             return query.where(column < criteria_range.value)
-        elif criteria_range.op == "eq":
+        elif op == RangeType.EQ:
             return query.where(column == criteria_range.value)
-        elif criteria_range.op == "gte":
+        elif op == RangeType.GTE:
             return query.where(column >= criteria_range.value)
-        elif criteria_range.op == "lte":
+        elif op == RangeType.LTE:
             return query.where(column <= criteria_range.value)
-        elif criteria_range.op == "bt":  # Between
+        elif op == RangeType.BT:  # Between
             if criteria_range.extent is not None:
                 return query.where(
                     column.between(criteria_range.value, criteria_range.extent)
                 )
-        elif criteria_range.op == "!bt":  # Not Between
+            return query  # Explicit return for fall-through
+        elif op == RangeType.NOT_BT:  # Not Between
             if criteria_range.extent is not None:
                 return query.where(
                     ~column.between(criteria_range.value, criteria_range.extent)
                 )
-        return query
+            return query  # Explicit return for fall-through
+        return query  # pragma: no cover
 
     def _apply_date_filter(self, query, column, criteria_range):
         """Helper to apply date range filters."""
-        if criteria_range.op == "gt":
+        op = criteria_range.op
+        if op == RangeType.GT:
             return query.where(column > criteria_range.value)
-        elif criteria_range.op == "lt":
+        elif op == RangeType.LT:
             return query.where(column < criteria_range.value)
-        elif criteria_range.op == "eq":
+        elif op == RangeType.EQ:
             return query.where(column == criteria_range.value)
-        elif criteria_range.op == "gte":
+        elif op == RangeType.GTE:
             return query.where(column >= criteria_range.value)
-        elif criteria_range.op == "lte":
+        elif op == RangeType.LTE:
             return query.where(column <= criteria_range.value)
-        elif criteria_range.op == "bt":  # Between
+        elif op == RangeType.BT:  # Between
             if criteria_range.extent is not None:
                 return query.where(
                     column.between(criteria_range.value, criteria_range.extent)
                 )
-        elif criteria_range.op == "!bt":  # Not Between
+            return query  # Explicit return for fall-through
+        elif op == RangeType.NOT_BT:  # Not Between
             if criteria_range.extent is not None:
                 return query.where(
                     ~column.between(criteria_range.value, criteria_range.extent)
                 )
-        return query
+            return query  # Explicit return for fall-through
+        return query  # pragma: no cover
 
     def _apply_text_filter(self, query, column, text_filter):
         """Helper to apply text filters with correct wildcard injection."""

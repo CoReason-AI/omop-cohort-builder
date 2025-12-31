@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import pytest
 from sqlalchemy.dialects import postgresql
+from pydantic import ValidationError
 
 from omop_cohort_builder.builders import QueryBuilder
 from omop_cohort_builder.domain import (
     ConditionOccurrence,
     DrugExposure,
-    VisitOccurrence,
     ProcedureOccurrence,
     Death,
 )
@@ -210,12 +210,15 @@ def test_numeric_filter_ops():
 
 def test_numeric_filter_unknown_op():
     """Test numeric filter with an unknown operator (fall through)."""
-    criteria = DrugExposure(refills=NumericRange(value=5, op="unknown"))
-    builder = QueryBuilder()
-    query = builder.build_criteria(criteria)
-    sql = compile_query(query)
-    # Should not apply any filter for refills (so no WHERE clause if this is the only filter)
-    assert "WHERE" not in sql
+    # Note: Pydantic validation prevents strict unknown ops now.
+    # We must bypass validation or assume this test is now obsolete regarding "unknown" string.
+    # If we really want to test the builder's behavior on 'weird' input, we can mock it, but
+    # strictly speaking Pydantic guarantees valid Enums.
+
+    # Let's try to construct a 'fake' object that bypasses validation if we really need to test the builder fall-through
+    # But for now, we expect ValidationError if we try to pass "unknown"
+    with pytest.raises(ValidationError):
+        DrugExposure(refills=NumericRange(value=5, op="unknown"))
 
 
 def test_text_filter_coverage():
@@ -287,47 +290,6 @@ def test_dose_unit_ignored():
     assert "SELECT drug_exposure.drug_exposure_id" in sql
     # We verify it DOES NOT try to filter on a non-existent column or the old one we removed
     assert "dose_unit_concept_id" not in sql
-
-
-# --- VisitOccurrence Tests ---
-
-
-def test_visit_occurrence_basic():
-    """Test VisitOccurrence query generation without filters."""
-    criteria = VisitOccurrence()
-    builder = QueryBuilder()
-    query = builder.build_criteria(criteria)
-    sql = compile_query(query)
-
-    assert "SELECT visit_occurrence.visit_occurrence_id" in sql
-    assert "FROM visit_occurrence" in sql
-
-
-def test_visit_occurrence_all_filters():
-    """Test VisitOccurrence with all supported filters."""
-    c1 = Concept(
-        CONCEPT_ID=201, CONCEPT_NAME="Inpatient", DOMAIN_ID="Visit", VOCABULARY_ID="Vis"
-    )
-
-    criteria = VisitOccurrence(
-        visit_type=[c1],
-        visit_source_concept=202,
-        occurrence_start_date=DateRange(value="2020-01-01", op="gte"),
-        occurrence_end_date=DateRange(value="2020-01-10", op="lte"),
-        visit_length=NumericRange(value=5, op="gt"),
-    )
-
-    builder = QueryBuilder()
-    query = builder.build_criteria(criteria)
-    sql = compile_query(query)
-
-    assert "visit_occurrence.visit_type_concept_id IN (201)" in sql
-    assert "visit_occurrence.visit_source_concept_id = 202" in sql
-    assert "visit_occurrence.visit_start_date >= '2020-01-01'" in sql
-    assert "visit_occurrence.visit_end_date <= '2020-01-10'" in sql
-    assert (
-        "visit_occurrence.visit_end_date - visit_occurrence.visit_start_date > 5" in sql
-    )
 
 
 # --- ProcedureOccurrence Tests ---

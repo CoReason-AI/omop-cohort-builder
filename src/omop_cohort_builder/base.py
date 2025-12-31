@@ -39,6 +39,21 @@ class CirceCamelModel(BaseModel):
     )
 
 
+class RangeType(StrEnum):
+    """
+    Enum for range operators.
+    Java: org.ohdsi.circe.cohortdefinition.RangeType
+    """
+
+    GT = "gt"
+    LT = "lt"
+    EQ = "eq"
+    GTE = "gte"
+    LTE = "lte"
+    BT = "bt"
+    NOT_BT = "!bt"
+
+
 class TextFilter(CirceModel):
     """
     Represents a text filter operation.
@@ -56,7 +71,7 @@ class NumericRange(CirceModel):
     """
 
     value: Union[int, float]
-    op: str
+    op: RangeType
     extent: Optional[Union[int, float]] = None
 
 
@@ -67,7 +82,7 @@ class DateRange(CirceModel):
     """
 
     value: str
-    op: str
+    op: RangeType
     extent: Optional[str] = None
 
 

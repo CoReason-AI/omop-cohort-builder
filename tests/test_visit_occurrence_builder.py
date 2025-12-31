@@ -1,5 +1,7 @@
 from sqlalchemy import Select
 from sqlalchemy.dialects import postgresql
+import pytest
+from pydantic import ValidationError
 
 from omop_cohort_builder.builders import QueryBuilder
 from omop_cohort_builder.domain import VisitOccurrence
@@ -176,10 +178,8 @@ def test_visit_occurrence_date_ops():
     # Should not apply filter
     assert "BETWEEN" not in sql_nbt_none
 
-    # Unknown op (fall through)
-    criteria_unknown = VisitOccurrence(
-        occurrence_start_date=DateRange(value="2020-01-01", op="unknown")
-    )
-    sql_unknown = compile_query(QueryBuilder().build_criteria(criteria_unknown))
-    # Should not contain WHERE clause for start date
-    assert "WHERE" not in sql_unknown
+    # Unknown op (fall through) - now raises ValidationError
+    with pytest.raises(ValidationError):
+        VisitOccurrence(
+            occurrence_start_date=DateRange(value="2020-01-01", op="unknown")
+        )
