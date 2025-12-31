@@ -519,6 +519,28 @@ class PayerPlanPeriod(WrappedCriteriaMixin, BaseCriteria):
     )
 
 
+class GeoCriteria(WrappedCriteriaMixin, BaseCriteria):
+    """
+    Abstract base class for geographic criteria.
+    Java: org.ohdsi.circe.cohortdefinition.GeoCriteria
+    """
+
+    start_date: Optional[DateRange] = Field(default=None, alias="StartDate")
+    end_date: Optional[DateRange] = Field(default=None, alias="EndDate")
+
+
+class LocationRegion(GeoCriteria):
+    """
+    Represents a location region criteria.
+    Java: org.ohdsi.circe.cohortdefinition.LocationRegion
+    """
+
+    criteria_type: Literal["LocationRegion"] = Field(
+        default="LocationRegion", exclude=True
+    )
+    codeset_id: Optional[int] = Field(default=None, alias="CodesetId")
+
+
 Criteria = Annotated[
     Union[
         ConditionOccurrence,
@@ -536,6 +558,7 @@ Criteria = Annotated[
         Specimen,
         VisitDetail,
         PayerPlanPeriod,
+        LocationRegion,
     ],
     Field(discriminator="criteria_type"),
     BeforeValidator(criteria_deserializer),
