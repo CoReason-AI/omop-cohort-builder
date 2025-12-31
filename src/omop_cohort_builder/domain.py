@@ -214,8 +214,53 @@ class ProcedureOccurrence(WrappedCriteriaMixin, BaseCriteria):
     )
 
 
+class Measurement(WrappedCriteriaMixin, BaseCriteria):
+    criteria_type: Literal["Measurement"] = Field(default="Measurement", exclude=True)
+
+    codeset_id: Optional[int] = None
+    first: Optional[bool] = None
+    occurrence_start_date: Optional[DateRange] = None
+    measurement_type: Optional[List[Concept]] = None
+    measurement_type_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="MeasurementTypeCS"
+    )
+    measurement_type_exclude: bool = False
+    operator: Optional[List[Concept]] = None
+    operator_cs: Optional[ConceptSetSelection] = Field(default=None, alias="OperatorCS")
+    value_as_number: Optional[NumericRange] = None
+    value_as_concept: Optional[List[Concept]] = None
+    value_as_concept_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="ValueAsConceptCS"
+    )
+    unit: Optional[List[Concept]] = None
+    unit_cs: Optional[ConceptSetSelection] = Field(default=None, alias="UnitCS")
+    range_low: Optional[NumericRange] = None
+    range_high: Optional[NumericRange] = None
+    range_low_ratio: Optional[NumericRange] = None
+    range_high_ratio: Optional[NumericRange] = None
+    abnormal: Optional[bool] = None
+    measurement_source_concept: Optional[int] = None
+    age: Optional[NumericRange] = None
+    gender: Optional[List[Concept]] = None
+    gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
+    provider_specialty: Optional[List[Concept]] = None
+    provider_specialty_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="ProviderSpecialtyCS"
+    )
+    visit_type: Optional[List[Concept]] = None
+    visit_type_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="VisitTypeCS"
+    )
+
+
 Criteria = Annotated[
-    Union[ConditionOccurrence, DrugExposure, VisitOccurrence, ProcedureOccurrence],
+    Union[
+        ConditionOccurrence,
+        DrugExposure,
+        VisitOccurrence,
+        ProcedureOccurrence,
+        Measurement,
+    ],
     Field(discriminator="criteria_type"),
     BeforeValidator(criteria_deserializer),
 ]
