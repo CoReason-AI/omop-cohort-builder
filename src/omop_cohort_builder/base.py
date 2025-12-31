@@ -116,7 +116,7 @@ class ConceptSetSelection(CirceModel):
     """
 
     codeset_id: int
-    is_exclusion: bool = False
+    is_exclusion: Optional[bool] = None
 
 
 class DateAdjustment(CirceModel):
@@ -175,5 +175,5 @@ class Occurrence(CirceModel):
 
     type: int
     count: int
-    is_distinct: bool = False
+    is_distinct: Optional[bool] = None
     count_column: Optional[CriteriaColumn] = None

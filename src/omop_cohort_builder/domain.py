@@ -14,6 +14,7 @@ from omop_cohort_builder.base import (
     Concept,
     ConceptSetSelection,
     DateAdjustment,
+    Period,
 )
 
 
@@ -323,6 +324,27 @@ class ConditionEra(WrappedCriteriaMixin, BaseCriteria):
     gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
 
 
+class ObservationPeriod(WrappedCriteriaMixin, BaseCriteria):
+    criteria_type: Literal["ObservationPeriod"] = Field(
+        default="ObservationPeriod", exclude=True
+    )
+    first: Optional[bool] = Field(default=None, alias="First")
+    period_start_date: Optional[DateRange] = Field(
+        default=None, alias="PeriodStartDate"
+    )
+    period_end_date: Optional[DateRange] = Field(default=None, alias="PeriodEndDate")
+    user_defined_period: Optional[Period] = Field(
+        default=None, alias="UserDefinedPeriod"
+    )
+    period_type: Optional[List[Concept]] = Field(default=None, alias="PeriodType")
+    period_type_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="PeriodTypeCS"
+    )
+    period_length: Optional[NumericRange] = Field(default=None, alias="PeriodLength")
+    age_at_start: Optional[NumericRange] = Field(default=None, alias="AgeAtStart")
+    age_at_end: Optional[NumericRange] = Field(default=None, alias="AgeAtEnd")
+
+
 Criteria = Annotated[
     Union[
         ConditionOccurrence,
@@ -333,6 +355,7 @@ Criteria = Annotated[
         Death,
         Observation,
         ConditionEra,
+        ObservationPeriod,
     ],
     Field(discriminator="criteria_type"),
     BeforeValidator(criteria_deserializer),
@@ -354,8 +377,10 @@ class WindowedCriteria(CirceModel):
     criteria: Criteria
     start_window: Optional[Window] = None
     end_window: Optional[Window] = None
-    restrict_visit: bool = False
-    ignore_observation_period: bool = False
+    restrict_visit: Optional[bool] = Field(default=None, alias="RestrictVisit")
+    ignore_observation_period: Optional[bool] = Field(
+        default=None, alias="IgnoreObservationPeriod"
+    )
 
 
 class CorelatedCriteria(WindowedCriteria):

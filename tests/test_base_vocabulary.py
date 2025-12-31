@@ -49,7 +49,7 @@ def test_concept_deserialization():
 def test_concept_set_selection_serialization():
     css = ConceptSetSelection(codeset_id=1)
     dumped = css.model_dump(by_alias=True)
-    assert dumped == {"CodesetId": 1, "IsExclusion": False}
+    assert dumped == {"CodesetId": 1, "IsExclusion": None}
 
     css_ex = ConceptSetSelection(codeset_id=2, is_exclusion=True)
     dumped_ex = css_ex.model_dump(by_alias=True)
