@@ -1,23 +1,25 @@
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
-
-[project]
+[tool.poetry]
 name = "omop_cohort_builder"
 version = "0.1.0"
 description = "A Python library for building OHDSI Circe cohort definitions"
-dependencies = [
-    "pydantic>=2.0",
-    "sqlalchemy>=2.0",
-]
-requires-python = ">=3.9"
+authors = ["Admin <admin@example.com>"]
+packages = [{include = "omop_cohort_builder", from = "src"}]
 
-[project.optional-dependencies]
-test = [
-    "pytest",
-    "pytest-cov",
-    "pytest-snapshot",
-]
+[tool.poetry.dependencies]
+python = "^3.12"
+pydantic = "^2.0"
+sqlalchemy = "^2.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+pytest-cov = "^6.0"
+pytest-snapshot = "^0.9.0"
+pre-commit = "^4.0"
+mypy = "^1.8"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 addopts = "--cov=src --cov-report=term-missing"
