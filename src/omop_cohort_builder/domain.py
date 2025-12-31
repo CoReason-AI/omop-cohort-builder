@@ -568,7 +568,21 @@ class CorelatedCriteria(WindowedCriteria):
 
 
 class DemographicCriteria(CirceModel):
-    pass
+    age: Optional[NumericRange] = None
+    gender: Optional[List[Concept]] = None
+    gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
+    race: Optional[List[Concept]] = None
+    race_cs: Optional[ConceptSetSelection] = Field(default=None, alias="RaceCS")
+    ethnicity: Optional[List[Concept]] = None
+    ethnicity_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="EthnicityCS"
+    )
+    occurrence_start_date: Optional[DateRange] = Field(
+        default=None, alias="OccurrenceStartDate"
+    )
+    occurrence_end_date: Optional[DateRange] = Field(
+        default=None, alias="OccurrenceEndDate"
+    )
 
 
 class CriteriaGroup(CirceModel):
