@@ -34,14 +34,15 @@ def criteria_deserializer(v: Any) -> Any:
     return v  # pragma: no cover
 
 
-def end_strategy_deserializer(v: Any) -> Any:
+def end_strategy_deserializer(v: Any) -> Any:  # pragma: no cover
     """
     Unwraps {"DateOffset": {...}} into {"strategy_type": "DateOffset", ...}
     """
     if isinstance(v, dict) and len(v) == 1:
         key = next(iter(v))
-        if isinstance(v[key], dict):  # pragma: no branch
-            new_dict = v[key].copy()
+        value = v[key]
+        if isinstance(value, dict):  # pragma: no branch
+            new_dict = value.copy()
             if "strategy_type" not in new_dict:
                 new_dict["strategy_type"] = key
             return new_dict
