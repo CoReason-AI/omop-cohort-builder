@@ -1,9 +1,15 @@
 from omop_cohort_builder.domain import CohortExpression
 import json
+from pathlib import Path
 
 
 def test_json_parity():
-    json_path = "/tmp/file_attachments/circe-be/src/test/resources/printfriendly/conditionOccurrence.json"
+    json_path = (
+        Path(__file__).parent
+        / "resources"
+        / "printfriendly"
+        / "conditionOccurrence.json"
+    )
     with open(json_path, "r") as f:
         data = json.load(f)
 
