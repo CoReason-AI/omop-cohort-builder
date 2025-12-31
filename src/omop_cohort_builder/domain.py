@@ -451,6 +451,39 @@ class Specimen(WrappedCriteriaMixin, BaseCriteria):
     gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
 
 
+class VisitDetail(WrappedCriteriaMixin, BaseCriteria):
+    criteria_type: Literal["VisitDetail"] = Field(default="VisitDetail", exclude=True)
+
+    codeset_id: Optional[int] = Field(default=None, alias="CodesetId")
+    first: Optional[bool] = Field(default=None, alias="First")
+    visit_detail_start_date: Optional[DateRange] = Field(
+        default=None, alias="VisitDetailStartDate"
+    )
+    visit_detail_end_date: Optional[DateRange] = Field(
+        default=None, alias="VisitDetailEndDate"
+    )
+    visit_detail_type_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="VisitDetailTypeCS"
+    )
+    visit_detail_source_concept: Optional[int] = Field(
+        default=None, alias="VisitDetailSourceConcept"
+    )
+    visit_detail_length: Optional[NumericRange] = Field(
+        default=None, alias="VisitDetailLength"
+    )
+    age: Optional[NumericRange] = Field(default=None, alias="Age")
+    gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
+    provider_specialty_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="ProviderSpecialtyCS"
+    )
+    place_of_service_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="PlaceOfServiceCS"
+    )
+    place_of_service_location: Optional[int] = Field(
+        default=None, alias="PlaceOfServiceLocation"
+    )
+
+
 Criteria = Annotated[
     Union[
         ConditionOccurrence,
@@ -466,6 +499,7 @@ Criteria = Annotated[
         ObservationPeriod,
         DeviceExposure,
         Specimen,
+        VisitDetail,
     ],
     Field(discriminator="criteria_type"),
     BeforeValidator(criteria_deserializer),
