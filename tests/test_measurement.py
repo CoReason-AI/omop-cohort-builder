@@ -78,4 +78,4 @@ def test_measurement_defaults():
     # But in CirceModel/BaseCriteria we rely on default behaviors.
     # Checking specific default values from Java mapping if any.
 
-    assert inner.get("MeasurementTypeExclude") is False  # boolean default false
+    assert inner.get("MeasurementTypeExclude") is None

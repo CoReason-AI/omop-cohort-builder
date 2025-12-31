@@ -163,7 +163,7 @@ class DrugExposure(WrappedCriteriaMixin, BaseCriteria):
     drug_type_cs: Optional[ConceptSetSelection] = Field(
         default=None, alias="DrugTypeCS"
     )
-    drug_type_exclude: bool = False
+    drug_type_exclude: Optional[bool] = None
     stop_reason: Optional[TextFilter] = None
     refills: Optional[NumericRange] = None
     quantity: Optional[NumericRange] = None
@@ -199,9 +199,30 @@ class VisitOccurrence(WrappedCriteriaMixin, BaseCriteria):
     codeset_id: Optional[int] = None
     first: Optional[bool] = None
     occurrence_start_date: Optional[DateRange] = None
-    # Added fields for test coverage
-    visit_type_exclude: Optional[bool] = None
-    visit_source_concept: Optional[int] = None
+    occurrence_end_date: Optional[DateRange] = Field(
+        default=None, alias="OccurrenceEndDate"
+    )
+    visit_type: Optional[List[Concept]] = Field(default=None, alias="VisitType")
+    visit_type_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="VisitTypeCS"
+    )
+    visit_type_exclude: Optional[bool] = Field(default=None, alias="VisitTypeExclude")
+    visit_source_concept: Optional[int] = Field(
+        default=None, alias="VisitSourceConcept"
+    )
+    visit_length: Optional[NumericRange] = Field(default=None, alias="VisitLength")
+    age: Optional[NumericRange] = Field(default=None, alias="Age")
+    gender: Optional[List[Concept]] = Field(default=None, alias="Gender")
+    gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
+    provider_specialty: Optional[List[Concept]] = Field(
+        default=None, alias="ProviderSpecialty"
+    )
+    provider_specialty_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="ProviderSpecialtyCS"
+    )
+    place_of_service: Optional[List[Concept]] = Field(
+        default=None, alias="PlaceOfService"
+    )
     place_of_service_cs: Optional[ConceptSetSelection] = Field(
         default=None, alias="PlaceOfServiceCS"
     )
@@ -222,7 +243,7 @@ class ProcedureOccurrence(WrappedCriteriaMixin, BaseCriteria):
     procedure_type_cs: Optional[ConceptSetSelection] = Field(
         default=None, alias="ProcedureTypeCS"
     )
-    procedure_type_exclude: bool = False
+    procedure_type_exclude: Optional[bool] = None
     modifier: Optional[List[Concept]] = None
     modifier_cs: Optional[ConceptSetSelection] = Field(default=None, alias="ModifierCS")
     quantity: Optional[NumericRange] = None
@@ -250,7 +271,7 @@ class Measurement(WrappedCriteriaMixin, BaseCriteria):
     measurement_type_cs: Optional[ConceptSetSelection] = Field(
         default=None, alias="MeasurementTypeCS"
     )
-    measurement_type_exclude: bool = False
+    measurement_type_exclude: Optional[bool] = None
     operator: Optional[List[Concept]] = None
     operator_cs: Optional[ConceptSetSelection] = Field(default=None, alias="OperatorCS")
     value_as_number: Optional[NumericRange] = None
@@ -288,7 +309,7 @@ class Death(WrappedCriteriaMixin, BaseCriteria):
     death_type_cs: Optional[ConceptSetSelection] = Field(
         default=None, alias="DeathTypeCS"
     )
-    death_type_exclude: bool = False
+    death_type_exclude: Optional[bool] = None
     death_source_concept: Optional[int] = None
     age: Optional[NumericRange] = None
     gender: Optional[List[Concept]] = None
@@ -305,7 +326,7 @@ class Observation(WrappedCriteriaMixin, BaseCriteria):
     observation_type_cs: Optional[ConceptSetSelection] = Field(
         default=None, alias="ObservationTypeCS"
     )
-    observation_type_exclude: bool = False
+    observation_type_exclude: Optional[bool] = None
     value_as_number: Optional[NumericRange] = None
     value_as_string: Optional[TextFilter] = None
     value_as_concept: Optional[List[Concept]] = None
@@ -422,7 +443,7 @@ class DeviceExposure(WrappedCriteriaMixin, BaseCriteria):
     device_type_cs: Optional[ConceptSetSelection] = Field(
         default=None, alias="DeviceTypeCS"
     )
-    device_type_exclude: bool = Field(default=False, alias="DeviceTypeExclude")
+    device_type_exclude: Optional[bool] = Field(default=None, alias="DeviceTypeExclude")
     unique_device_id: Optional[TextFilter] = Field(default=None, alias="UniqueDeviceId")
     quantity: Optional[NumericRange] = Field(default=None, alias="Quantity")
     device_source_concept: Optional[int] = Field(
@@ -455,7 +476,9 @@ class Specimen(WrappedCriteriaMixin, BaseCriteria):
     specimen_type_cs: Optional[ConceptSetSelection] = Field(
         default=None, alias="SpecimenTypeCS"
     )
-    specimen_type_exclude: bool = Field(default=False, alias="SpecimenTypeExclude")
+    specimen_type_exclude: Optional[bool] = Field(
+        default=None, alias="SpecimenTypeExclude"
+    )
     quantity: Optional[NumericRange] = Field(default=None, alias="Quantity")
     unit: Optional[List[Concept]] = Field(default=None, alias="Unit")
     unit_cs: Optional[ConceptSetSelection] = Field(default=None, alias="UnitCS")
@@ -651,9 +674,9 @@ class CriteriaGroup(CirceModel):
 # --- Stubs for Phase 3 ---
 class ConceptSetItem(CirceCamelModel):  # camelCase
     concept: Concept
-    is_excluded: bool = False
-    include_descendants: bool = False
-    include_mapped: bool = False
+    is_excluded: Optional[bool] = None
+    include_descendants: Optional[bool] = None
+    include_mapped: Optional[bool] = None
 
 
 class ConceptSetExpression(CirceCamelModel):  # camelCase
