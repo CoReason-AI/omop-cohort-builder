@@ -253,6 +253,22 @@ class Measurement(WrappedCriteriaMixin, BaseCriteria):
     )
 
 
+class Death(WrappedCriteriaMixin, BaseCriteria):
+    criteria_type: Literal["Death"] = Field(default="Death", exclude=True)
+
+    codeset_id: Optional[int] = None
+    occurrence_start_date: Optional[DateRange] = None
+    death_type: Optional[List[Concept]] = None
+    death_type_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="DeathTypeCS"
+    )
+    death_type_exclude: bool = False
+    death_source_concept: Optional[int] = None
+    age: Optional[NumericRange] = None
+    gender: Optional[List[Concept]] = None
+    gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
+
+
 Criteria = Annotated[
     Union[
         ConditionOccurrence,
@@ -260,6 +276,7 @@ Criteria = Annotated[
         VisitOccurrence,
         ProcedureOccurrence,
         Measurement,
+        Death,
     ],
     Field(discriminator="criteria_type"),
     BeforeValidator(criteria_deserializer),
