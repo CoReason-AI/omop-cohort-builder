@@ -383,6 +383,39 @@ class DeviceExposure(WrappedCriteriaMixin, BaseCriteria):
     )
 
 
+class Specimen(WrappedCriteriaMixin, BaseCriteria):
+    criteria_type: Literal["Specimen"] = Field(default="Specimen", exclude=True)
+
+    codeset_id: Optional[int] = Field(default=None, alias="CodesetId")
+    first: Optional[bool] = Field(default=None, alias="First")
+    occurrence_start_date: Optional[DateRange] = Field(
+        default=None, alias="OccurrenceStartDate"
+    )
+    specimen_type: Optional[List[Concept]] = Field(default=None, alias="SpecimenType")
+    specimen_type_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="SpecimenTypeCS"
+    )
+    specimen_type_exclude: bool = Field(default=False, alias="SpecimenTypeExclude")
+    quantity: Optional[NumericRange] = Field(default=None, alias="Quantity")
+    unit: Optional[List[Concept]] = Field(default=None, alias="Unit")
+    unit_cs: Optional[ConceptSetSelection] = Field(default=None, alias="UnitCS")
+    anatomic_site: Optional[List[Concept]] = Field(default=None, alias="AnatomicSite")
+    anatomic_site_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="AnatomicSiteCS"
+    )
+    disease_status: Optional[List[Concept]] = Field(default=None, alias="DiseaseStatus")
+    disease_status_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="DiseaseStatusCS"
+    )
+    source_id: Optional[TextFilter] = Field(default=None, alias="SourceId")
+    specimen_source_concept: Optional[int] = Field(
+        default=None, alias="SpecimenSourceConcept"
+    )
+    age: Optional[NumericRange] = Field(default=None, alias="Age")
+    gender: Optional[List[Concept]] = Field(default=None, alias="Gender")
+    gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
+
+
 Criteria = Annotated[
     Union[
         ConditionOccurrence,
@@ -395,6 +428,7 @@ Criteria = Annotated[
         ConditionEra,
         ObservationPeriod,
         DeviceExposure,
+        Specimen,
     ],
     Field(discriminator="criteria_type"),
     BeforeValidator(criteria_deserializer),
