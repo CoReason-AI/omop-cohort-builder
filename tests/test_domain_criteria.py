@@ -24,9 +24,7 @@ def test_condition_occurrence_serialization():
         occurrence_start_date=DateRange(value="2023-01-01", op="gt"),
         occurrence_end_date=DateRange(value="2023-12-31", op="lt"),
         condition_type=[
-            Concept(
-                concept_id=1, concept_name="Test Concept", standard_concept="S"
-            )
+            Concept(concept_id=1, concept_name="Test Concept", standard_concept="S")
         ],
         condition_type_cs=ConceptSetSelection(codeset_id=10, is_exclusion=True),
         condition_type_exclude=False,
@@ -42,8 +40,10 @@ def test_condition_occurrence_serialization():
         condition_status=[Concept(concept_id=100, concept_name="Active")],
         condition_status_cs=ConceptSetSelection(codeset_id=50),
         date_adjustment=DateAdjustment(
-            start_with=DateAdjustmentType.START_DATE, start_offset=1,
-            end_with=DateAdjustmentType.END_DATE, end_offset=1
+            start_with=DateAdjustmentType.START_DATE,
+            start_offset=1,
+            end_with=DateAdjustmentType.END_DATE,
+            end_offset=1,
         ),
     )
 
@@ -65,8 +65,16 @@ def test_condition_occurrence_serialization():
     assert inner["ConditionSourceConcept"] == 12345
 
     # Check complex objects
-    assert inner["OccurrenceStartDate"] == {"Value": "2023-01-01", "Op": "gt", "Extent": None}
-    assert inner["OccurrenceEndDate"] == {"Value": "2023-12-31", "Op": "lt", "Extent": None}
+    assert inner["OccurrenceStartDate"] == {
+        "Value": "2023-01-01",
+        "Op": "gt",
+        "Extent": None,
+    }
+    assert inner["OccurrenceEndDate"] == {
+        "Value": "2023-12-31",
+        "Op": "lt",
+        "Extent": None,
+    }
 
     assert len(inner["ConditionType"]) == 1
     assert inner["ConditionType"][0]["CONCEPT_ID"] == 1
@@ -83,7 +91,7 @@ def test_condition_occurrence_serialization():
         "StartWith": "START_DATE",
         "StartOffset": 1,
         "EndWith": "END_DATE",
-        "EndOffset": 1
+        "EndOffset": 1,
     }
 
     # IMPORTANT: Ensure the discriminator "CriteriaType" is NOT inside the wrapper
@@ -106,7 +114,7 @@ def test_drug_exposure_serialization():
         effective_drug_dose=NumericRange(value=500, op="eq"),
         dose_unit=[Concept(concept_id=4, concept_name="mg")],
         lot_number=TextFilter(text="LOT123", op="eq"),
-        drug_source_concept=54321
+        drug_source_concept=54321,
     )
 
     # Act
@@ -163,6 +171,7 @@ def test_criteria_deserialization():
     # 3. Test non-dict input (pass-through coverage)
     # This won't validate as Criteria, but it exercises the deserializer code path
     from omop_cohort_builder.domain import criteria_deserializer
+
     assert criteria_deserializer("string") == "string"
     assert criteria_deserializer({"A": 1, "B": 2}) == {"A": 1, "B": 2}  # >1 key
     assert criteria_deserializer({"A": 1}) == {"A": 1}  # 1 key, but value not dict
