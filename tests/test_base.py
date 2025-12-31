@@ -1,4 +1,4 @@
-from omop_cohort_builder.base import to_pascal, CirceModel
+from omop_cohort_builder.base import to_pascal, to_camel, CirceModel
 
 
 def test_to_pascal():
@@ -8,6 +8,13 @@ def test_to_pascal():
     # Note: CS suffix handling is done via manual alias in domain models,
     # so to_pascal defaults to Cs.
     assert to_pascal("some_cs") == "SomeCs"
+
+
+def test_to_camel():
+    assert to_camel("snake_case") == "snakeCase"
+    assert to_camel("simple") == "simple"
+    assert to_camel("multi_word_string") == "multiWordString"
+    assert to_camel("") == ""
 
 
 class ExampleModel(CirceModel):
