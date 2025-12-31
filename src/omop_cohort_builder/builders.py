@@ -8,12 +8,14 @@ from omop_cohort_builder.domain import (
     ConditionOccurrence,
     DrugExposure,
     VisitOccurrence,
+    ProcedureOccurrence,
     Criteria,
 )
 from omop_cohort_builder.schema import (
     condition_occurrence,
     drug_exposure,
     visit_occurrence,
+    procedure_occurrence,
 )
 
 
@@ -162,6 +164,50 @@ class QueryBuilder:
             )
             query = self._apply_numeric_filter(
                 query, length_expr, criteria.visit_length
+            )
+
+        return query
+
+    @build_criteria.register
+    def _build_procedure_occurrence(self, criteria: ProcedureOccurrence) -> Select:
+        """
+        Builds a SQL query for ProcedureOccurrence criteria.
+        """
+        query = select(procedure_occurrence)
+
+        # 1. Procedure Type (List of Concepts) -> procedure_type_concept_id IN (...)
+        if criteria.procedure_type:
+            concept_ids = [c.concept_id for c in criteria.procedure_type]
+            query = query.where(
+                procedure_occurrence.c.procedure_type_concept_id.in_(concept_ids)
+            )
+
+        # 2. Modifier (List of Concepts) -> modifier_concept_id IN (...)
+        if criteria.modifier:
+            concept_ids = [c.concept_id for c in criteria.modifier]
+            query = query.where(
+                procedure_occurrence.c.modifier_concept_id.in_(concept_ids)
+            )
+
+        # 3. Quantity (NumericRange) -> quantity op value
+        if criteria.quantity:
+            query = self._apply_numeric_filter(
+                query, procedure_occurrence.c.quantity, criteria.quantity
+            )
+
+        # 4. Procedure Source Concept -> procedure_source_concept_id = ...
+        if criteria.procedure_source_concept is not None:
+            query = query.where(
+                procedure_occurrence.c.procedure_source_concept_id
+                == criteria.procedure_source_concept
+            )
+
+        # 5. Occurrence Start Date -> procedure_date
+        if criteria.occurrence_start_date:
+            query = self._apply_date_filter(
+                query,
+                procedure_occurrence.c.procedure_date,
+                criteria.occurrence_start_date,
             )
 
         return query

@@ -1,19 +1,30 @@
+from __future__ import annotations
+
 import pytest
-from sqlalchemy import Select
+from sqlalchemy import select
 from sqlalchemy.dialects import postgresql
 
 from omop_cohort_builder.builders import QueryBuilder
-from omop_cohort_builder.domain import ConditionOccurrence, DrugExposure, Death
-from omop_cohort_builder.base import Concept, TextFilter, NumericRange
+from omop_cohort_builder.domain import (
+    ConditionOccurrence,
+    DrugExposure,
+    VisitOccurrence,
+    ProcedureOccurrence,
+    Death,
+)
+from omop_cohort_builder.base import TextFilter, NumericRange, Concept, DateRange
 
 
-def compile_query(query: Select) -> str:
-    """Compiles a SQLAlchemy query to a string with literal binds."""
+def compile_query(query):
+    """Helper to compile query to string for assertions."""
     return str(
         query.compile(
             dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
         )
     )
+
+
+# --- ConditionOccurrence Tests ---
 
 
 def test_condition_occurrence_basic():
@@ -277,3 +288,136 @@ def test_dose_unit_ignored():
     assert "SELECT drug_exposure.drug_exposure_id" in sql
     # We verify it DOES NOT try to filter on a non-existent column or the old one we removed
     assert "dose_unit_concept_id" not in sql
+
+
+# --- VisitOccurrence Tests ---
+
+
+def test_visit_occurrence_basic():
+    """Test VisitOccurrence query generation without filters."""
+    criteria = VisitOccurrence()
+    builder = QueryBuilder()
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    assert "SELECT visit_occurrence.visit_occurrence_id" in sql
+    assert "FROM visit_occurrence" in sql
+
+
+def test_visit_occurrence_all_filters():
+    """Test VisitOccurrence with all supported filters."""
+    c1 = Concept(
+        CONCEPT_ID=201, CONCEPT_NAME="Inpatient", DOMAIN_ID="Visit", VOCABULARY_ID="Vis"
+    )
+
+    criteria = VisitOccurrence(
+        visit_type=[c1],
+        visit_source_concept=202,
+        occurrence_start_date=DateRange(value="2020-01-01", op="gte"),
+        occurrence_end_date=DateRange(value="2020-01-10", op="lte"),
+        visit_length=NumericRange(value=5, op="gt"),
+    )
+
+    builder = QueryBuilder()
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    assert "visit_occurrence.visit_type_concept_id IN (201)" in sql
+    assert "visit_occurrence.visit_source_concept_id = 202" in sql
+    assert "visit_occurrence.visit_start_date >= '2020-01-01'" in sql
+    assert "visit_occurrence.visit_end_date <= '2020-01-10'" in sql
+    assert (
+        "visit_occurrence.visit_end_date - visit_occurrence.visit_start_date > 5" in sql
+    )
+
+
+# --- ProcedureOccurrence Tests ---
+
+
+def test_procedure_occurrence_basic():
+    """Test ProcedureOccurrence query generation without filters."""
+    criteria = ProcedureOccurrence()
+    builder = QueryBuilder()
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    assert "SELECT procedure_occurrence.procedure_occurrence_id" in sql
+    assert "FROM procedure_occurrence" in sql
+
+
+def test_procedure_occurrence_all_filters():
+    """Test ProcedureOccurrence with all supported filters."""
+    c1 = Concept(
+        CONCEPT_ID=301,
+        CONCEPT_NAME="Surgery",
+        DOMAIN_ID="Procedure",
+        VOCABULARY_ID="CPT4",
+    )
+    c2 = Concept(
+        CONCEPT_ID=302,
+        CONCEPT_NAME="Modifier",
+        DOMAIN_ID="Modifier",
+        VOCABULARY_ID="CPT4",
+    )
+
+    criteria = ProcedureOccurrence(
+        procedure_type=[c1],
+        modifier=[c2],
+        quantity=NumericRange(value=2, op="gte"),
+        procedure_source_concept=303,
+        occurrence_start_date=DateRange(value="2021-01-01", op="eq"),
+    )
+
+    builder = QueryBuilder()
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    assert "procedure_occurrence.procedure_type_concept_id IN (301)" in sql
+    assert "procedure_occurrence.modifier_concept_id IN (302)" in sql
+    assert "procedure_occurrence.quantity >= 2" in sql
+    assert "procedure_occurrence.procedure_source_concept_id = 303" in sql
+    assert "procedure_occurrence.procedure_date = '2021-01-01'" in sql
+
+
+def test_date_filter_ops():
+    """Test all date filter operations to ensure coverage."""
+    # We can use ProcedureOccurrence for this
+    # eq tested in procedure basic
+
+    # gt
+    criteria_gt = ProcedureOccurrence(
+        occurrence_start_date=DateRange(value="2020-01-01", op="gt")
+    )
+    sql_gt = compile_query(QueryBuilder().build_criteria(criteria_gt))
+    assert "procedure_occurrence.procedure_date > '2020-01-01'" in sql_gt
+
+    # lt
+    criteria_lt = ProcedureOccurrence(
+        occurrence_start_date=DateRange(value="2020-01-01", op="lt")
+    )
+    sql_lt = compile_query(QueryBuilder().build_criteria(criteria_lt))
+    assert "procedure_occurrence.procedure_date < '2020-01-01'" in sql_lt
+
+    # bt
+    criteria_bt = ProcedureOccurrence(
+        occurrence_start_date=DateRange(
+            value="2020-01-01", op="bt", extent="2020-12-31"
+        )
+    )
+    sql_bt = compile_query(QueryBuilder().build_criteria(criteria_bt))
+    assert (
+        "procedure_occurrence.procedure_date BETWEEN '2020-01-01' AND '2020-12-31'"
+        in sql_bt
+    )
+
+    # !bt
+    criteria_nbt = ProcedureOccurrence(
+        occurrence_start_date=DateRange(
+            value="2020-01-01", op="!bt", extent="2020-12-31"
+        )
+    )
+    sql_nbt = compile_query(QueryBuilder().build_criteria(criteria_nbt))
+    assert (
+        "procedure_occurrence.procedure_date NOT BETWEEN '2020-01-01' AND '2020-12-31'"
+        in sql_nbt
+    )
