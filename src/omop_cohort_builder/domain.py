@@ -324,6 +324,41 @@ class ConditionEra(WrappedCriteriaMixin, BaseCriteria):
     gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
 
 
+class DrugEra(WrappedCriteriaMixin, BaseCriteria):
+    criteria_type: Literal["DrugEra"] = Field(default="DrugEra", exclude=True)
+
+    codeset_id: Optional[int] = Field(default=None, alias="CodesetId")
+    first: Optional[bool] = Field(default=None, alias="First")
+    era_start_date: Optional[DateRange] = Field(default=None, alias="EraStartDate")
+    era_end_date: Optional[DateRange] = Field(default=None, alias="EraEndDate")
+    occurrence_count: Optional[NumericRange] = Field(
+        default=None, alias="OccurrenceCount"
+    )
+    era_length: Optional[NumericRange] = Field(default=None, alias="EraLength")
+    gap_days: Optional[NumericRange] = Field(default=None, alias="GapDays")
+    age_at_start: Optional[NumericRange] = Field(default=None, alias="AgeAtStart")
+    age_at_end: Optional[NumericRange] = Field(default=None, alias="AgeAtEnd")
+    gender: Optional[List[Concept]] = Field(default=None, alias="Gender")
+    gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
+
+
+class DoseEra(WrappedCriteriaMixin, BaseCriteria):
+    criteria_type: Literal["DoseEra"] = Field(default="DoseEra", exclude=True)
+
+    codeset_id: Optional[int] = Field(default=None, alias="CodesetId")
+    first: Optional[bool] = Field(default=None, alias="First")
+    era_start_date: Optional[DateRange] = Field(default=None, alias="EraStartDate")
+    era_end_date: Optional[DateRange] = Field(default=None, alias="EraEndDate")
+    unit: Optional[List[Concept]] = Field(default=None, alias="Unit")
+    unit_cs: Optional[ConceptSetSelection] = Field(default=None, alias="UnitCS")
+    dose_value: Optional[NumericRange] = Field(default=None, alias="DoseValue")
+    era_length: Optional[NumericRange] = Field(default=None, alias="EraLength")
+    age_at_start: Optional[NumericRange] = Field(default=None, alias="AgeAtStart")
+    age_at_end: Optional[NumericRange] = Field(default=None, alias="AgeAtEnd")
+    gender: Optional[List[Concept]] = Field(default=None, alias="Gender")
+    gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
+
+
 class ObservationPeriod(WrappedCriteriaMixin, BaseCriteria):
     criteria_type: Literal["ObservationPeriod"] = Field(
         default="ObservationPeriod", exclude=True
@@ -426,6 +461,8 @@ Criteria = Annotated[
         Death,
         Observation,
         ConditionEra,
+        DrugEra,
+        DoseEra,
         ObservationPeriod,
         DeviceExposure,
         Specimen,
