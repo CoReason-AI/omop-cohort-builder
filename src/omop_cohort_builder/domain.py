@@ -24,30 +24,30 @@ def criteria_deserializer(v: Any) -> Any:
     Unwraps {"ConditionOccurrence": {...}} into {"criteria_type": "ConditionOccurrence", ...}
     for Pydantic Discriminated Union.
     """
-    if isinstance(v, dict) and len(v) == 1:
-        key = next(iter(v))
-        if isinstance(v[key], dict):
-            new_dict = v[key].copy()
-            if "criteria_type" not in new_dict:
-                new_dict["criteria_type"] = key
-            return new_dict
-        return v  # pragma: no cover
-    return v  # pragma: no cover
+    if isinstance(v, dict):
+        if len(v) == 1:
+            key = next(iter(v))
+            if isinstance(v[key], dict):
+                new_dict = v[key].copy()
+                if "criteria_type" not in new_dict:
+                    new_dict["criteria_type"] = key
+                return new_dict
+    return v
 
 
-def end_strategy_deserializer(v: Any) -> Any:  # pragma: no cover
+def end_strategy_deserializer(v: Any) -> Any:
     """
     Unwraps {"DateOffset": {...}} into {"strategy_type": "DateOffset", ...}
     """
-    if isinstance(v, dict) and len(v) == 1:
-        key = next(iter(v))
-        value = v[key]
-        if isinstance(value, dict):  # pragma: no branch
-            new_dict = value.copy()
-            if "strategy_type" not in new_dict:
-                new_dict["strategy_type"] = key
-            return new_dict
-        return v
+    if isinstance(v, dict):
+        if len(v) == 1:
+            key = next(iter(v))
+            value = v[key]
+            if isinstance(value, dict):
+                new_dict = value.copy()
+                if "strategy_type" not in new_dict:
+                    new_dict["strategy_type"] = key
+                return new_dict
     return v
 
 
@@ -71,10 +71,6 @@ class WrappedCriteriaMixin:
     def serialize_wrapper(self, handler) -> Dict[str, Any]:
         data = handler(self)
         key = self.__class__.__name__
-        if "CriteriaType" in data:
-            del data["CriteriaType"]  # pragma: no cover
-        if "criteria_type" in data:
-            del data["criteria_type"]  # pragma: no cover
         return {key: data}
 
 
@@ -87,10 +83,6 @@ class WrappedStrategyMixin:
     def serialize_wrapper(self, handler) -> Dict[str, Any]:
         data = handler(self)
         key = self.__class__.__name__
-        if "StrategyType" in data:
-            del data["StrategyType"]  # pragma: no cover
-        if "strategy_type" in data:
-            del data["strategy_type"]  # pragma: no cover
         return {key: data}
 
 
