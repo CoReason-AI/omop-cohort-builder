@@ -686,8 +686,8 @@ EndStrategy = Annotated[
 
 
 class InclusionRule(CirceCamelModel):
-    name: str = ""
-    description: str = ""
+    name: Optional[str] = None
+    description: Optional[str] = None
     expression: Optional[CriteriaGroup] = None
 
 
