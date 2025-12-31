@@ -35,7 +35,7 @@ def criteria_deserializer(v: Any) -> Any:
     return v  # pragma: no cover
 
 
-def end_strategy_deserializer(v: Any) -> Any:  # pragma: no cover
+def end_strategy_deserializer(v: Any) -> Any:
     """
     Unwraps {"DateOffset": {...}} into {"strategy_type": "DateOffset", ...}
     """
@@ -47,8 +47,8 @@ def end_strategy_deserializer(v: Any) -> Any:  # pragma: no cover
             if "strategy_type" not in new_dict:
                 new_dict["strategy_type"] = key
             return new_dict
-        return v
-    return v
+        return v  # pragma: no cover
+    return v  # pragma: no cover
 
 
 class BaseCriteria(CirceModel):
