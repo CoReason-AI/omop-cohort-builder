@@ -65,7 +65,7 @@ def test_device_exposure_round_trip():
 
 def test_device_exposure_defaults():
     de = DeviceExposure()
-    assert de.device_type_exclude is False
+    assert de.device_type_exclude is None
     assert de.codeset_id is None
     dump = de.model_dump(by_alias=True)
-    assert dump["DeviceExposure"]["DeviceTypeExclude"] is False
+    assert dump["DeviceExposure"]["DeviceTypeExclude"] is None
