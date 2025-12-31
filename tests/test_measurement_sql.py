@@ -4,15 +4,17 @@ from omop_cohort_builder.builders import QueryBuilder
 from omop_cohort_builder.domain import Measurement, NumericRange
 from omop_cohort_builder.base import Concept
 from sqlalchemy.dialects import postgresql
-from sqlalchemy import select
+
 
 def compile_query(query):
     return query.compile(
         dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
     )
 
+
 def normalize(s):
     return " ".join(s.split())
+
 
 def test_build_measurement_simple():
     qb = QueryBuilder()
@@ -25,13 +27,14 @@ def test_build_measurement_simple():
     assert "SELECT measurement.measurement_id" in sql
     assert "FROM measurement" in sql
 
+
 def test_build_measurement_with_concepts():
     qb = QueryBuilder()
     criteria = Measurement(
         measurement_type=[Concept(concept_id=123, concept_name="Test Type")],
         operator=[Concept(concept_id=456, concept_name="Test Op")],
         value_as_concept=[Concept(concept_id=789, concept_name="Test Value")],
-        unit=[Concept(concept_id=101, concept_name="Test Unit")]
+        unit=[Concept(concept_id=101, concept_name="Test Unit")],
     )
 
     query = qb.build_criteria(criteria)
@@ -42,12 +45,13 @@ def test_build_measurement_with_concepts():
     assert "measurement.value_as_concept_id IN (789)" in sql
     assert "measurement.unit_concept_id IN (101)" in sql
 
+
 def test_build_measurement_numeric_filters():
     qb = QueryBuilder()
     criteria = Measurement(
         value_as_number=NumericRange(value=10.5, op="gt"),
         range_low=NumericRange(value=5.0, op="lt"),
-        range_high=NumericRange(value=20.0, op="gte")
+        range_high=NumericRange(value=20.0, op="gte"),
     )
 
     query = qb.build_criteria(criteria)
@@ -57,16 +61,16 @@ def test_build_measurement_numeric_filters():
     assert "measurement.range_low < 5.0" in sql
     assert "measurement.range_high >= 20.0" in sql
 
+
 def test_build_measurement_source_concept():
     qb = QueryBuilder()
-    criteria = Measurement(
-        measurement_source_concept=999
-    )
+    criteria = Measurement(measurement_source_concept=999)
 
     query = qb.build_criteria(criteria)
     sql = str(compile_query(query))
 
     assert "measurement.measurement_source_concept_id = 999" in sql
+
 
 def test_build_measurement_ratios_and_abnormal():
     # Note: Ratios and abnormal require computed columns or complex logic
@@ -83,12 +87,11 @@ def test_build_measurement_ratios_and_abnormal():
     criteria = Measurement(
         abnormal=True,
         range_low_ratio=NumericRange(value=1.5, op="gt"),
-        range_high_ratio=NumericRange(value=0.5, op="lt")
+        range_high_ratio=NumericRange(value=0.5, op="lt"),
     )
 
     query = qb.build_criteria(criteria)
     sql = str(compile_query(query))
-    norm_sql = normalize(sql)
 
     # Verify abnormal logic
     assert "measurement.value_as_number < measurement.range_low" in sql
