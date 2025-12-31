@@ -269,6 +269,43 @@ class Death(WrappedCriteriaMixin, BaseCriteria):
     gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
 
 
+class Observation(WrappedCriteriaMixin, BaseCriteria):
+    criteria_type: Literal["Observation"] = Field(default="Observation", exclude=True)
+
+    codeset_id: Optional[int] = None
+    first: Optional[bool] = None
+    occurrence_start_date: Optional[DateRange] = None
+    observation_type: Optional[List[Concept]] = None
+    observation_type_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="ObservationTypeCS"
+    )
+    observation_type_exclude: bool = False
+    value_as_number: Optional[NumericRange] = None
+    value_as_string: Optional[TextFilter] = None
+    value_as_concept: Optional[List[Concept]] = None
+    value_as_concept_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="ValueAsConceptCS"
+    )
+    qualifier: Optional[List[Concept]] = None
+    qualifier_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="QualifierCS"
+    )
+    unit: Optional[List[Concept]] = None
+    unit_cs: Optional[ConceptSetSelection] = Field(default=None, alias="UnitCS")
+    observation_source_concept: Optional[int] = None
+    age: Optional[NumericRange] = None
+    gender: Optional[List[Concept]] = None
+    gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
+    provider_specialty: Optional[List[Concept]] = None
+    provider_specialty_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="ProviderSpecialtyCS"
+    )
+    visit_type: Optional[List[Concept]] = None
+    visit_type_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="VisitTypeCS"
+    )
+
+
 Criteria = Annotated[
     Union[
         ConditionOccurrence,
@@ -277,6 +314,7 @@ Criteria = Annotated[
         ProcedureOccurrence,
         Measurement,
         Death,
+        Observation,
     ],
     Field(discriminator="criteria_type"),
     BeforeValidator(criteria_deserializer),
