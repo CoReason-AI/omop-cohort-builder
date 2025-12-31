@@ -1,6 +1,6 @@
 from typing import List, Optional, Union, Any, Annotated, Dict, Literal
-from pydantic import Field, BeforeValidator, model_serializer, ConfigDict
-from src.omop_cohort_builder.core import (
+from pydantic import Field, BeforeValidator, model_serializer
+from omop_cohort_builder.core import (
     CirceModel,
     TextFilter,
     NumericRange,
@@ -17,7 +17,9 @@ class Concept(CirceModel):
     concept_id: int = Field(alias="CONCEPT_ID")
     concept_name: str = Field(alias="CONCEPT_NAME")
     standard_concept: Optional[str] = Field(None, alias="STANDARD_CONCEPT")
-    standard_concept_caption: Optional[str] = Field(None, alias="STANDARD_CONCEPT_CAPTION")
+    standard_concept_caption: Optional[str] = Field(
+        None, alias="STANDARD_CONCEPT_CAPTION"
+    )
     invalid_reason: Optional[str] = Field(None, alias="INVALID_REASON")
     invalid_reason_caption: Optional[str] = Field(None, alias="INVALID_REASON_CAPTION")
     concept_code: Optional[str] = Field(None, alias="CONCEPT_CODE")
@@ -39,7 +41,9 @@ class Occurrence(CirceModel):
 
 
 class BaseCriteria(CirceModel):
-    correlated_criteria: Optional["CriteriaGroup"] = Field(None, alias="CorrelatedCriteria")
+    correlated_criteria: Optional["CriteriaGroup"] = Field(
+        None, alias="CorrelatedCriteria"
+    )
     date_adjustment: Optional[DateAdjustment] = None
 
 
@@ -54,8 +58,9 @@ def criteria_deserializer(v: Any) -> Any:
             return new_v
     return v
 
+
 class WrappedCriteriaMixin(BaseCriteria):
-    @model_serializer(mode='wrap')
+    @model_serializer(mode="wrap")
     def serialize_wrapper(self, handler) -> Dict[str, Any]:
         data = handler(self)
         # We need to remove the discriminator field from the output if it's there.
@@ -78,7 +83,9 @@ class ConditionOccurrence(WrappedCriteriaMixin):
     occurrence_start_date: Optional[DateRange] = None
     occurrence_end_date: Optional[DateRange] = None
     condition_type: Optional[List[Concept]] = None
-    condition_type_cs: Optional[ConceptSetSelection] = Field(None, alias="ConditionTypeCS")
+    condition_type_cs: Optional[ConceptSetSelection] = Field(
+        None, alias="ConditionTypeCS"
+    )
     condition_type_exclude: Optional[bool] = None
     stop_reason: Optional[TextFilter] = None
     condition_source_concept: Optional[int] = None
@@ -86,11 +93,15 @@ class ConditionOccurrence(WrappedCriteriaMixin):
     gender: Optional[List[Concept]] = None
     gender_cs: Optional[ConceptSetSelection] = Field(None, alias="GenderCS")
     provider_specialty: Optional[List[Concept]] = None
-    provider_specialty_cs: Optional[ConceptSetSelection] = Field(None, alias="ProviderSpecialtyCS")
+    provider_specialty_cs: Optional[ConceptSetSelection] = Field(
+        None, alias="ProviderSpecialtyCS"
+    )
     visit_type: Optional[List[Concept]] = None
     visit_type_cs: Optional[ConceptSetSelection] = Field(None, alias="VisitTypeCS")
     condition_status: Optional[List[Concept]] = None
-    condition_status_cs: Optional[ConceptSetSelection] = Field(None, alias="ConditionStatusCS")
+    condition_status_cs: Optional[ConceptSetSelection] = Field(
+        None, alias="ConditionStatusCS"
+    )
 
 
 class DrugExposure(WrappedCriteriaMixin):
@@ -108,7 +119,9 @@ class DrugExposure(WrappedCriteriaMixin):
     quantity: Optional[NumericRange] = None
     days_supply: Optional[NumericRange] = None
     route_concept: Optional[List[Concept]] = None
-    route_concept_cs: Optional[ConceptSetSelection] = Field(None, alias="RouteConceptCS")
+    route_concept_cs: Optional[ConceptSetSelection] = Field(
+        None, alias="RouteConceptCS"
+    )
     effective_drug_dose: Optional[NumericRange] = None
     dose_unit: Optional[List[Concept]] = None
     dose_unit_cs: Optional[ConceptSetSelection] = Field(None, alias="DoseUnitCS")
@@ -118,18 +131,17 @@ class DrugExposure(WrappedCriteriaMixin):
     gender: Optional[List[Concept]] = None
     gender_cs: Optional[ConceptSetSelection] = Field(None, alias="GenderCS")
     provider_specialty: Optional[List[Concept]] = None
-    provider_specialty_cs: Optional[ConceptSetSelection] = Field(None, alias="ProviderSpecialtyCS")
+    provider_specialty_cs: Optional[ConceptSetSelection] = Field(
+        None, alias="ProviderSpecialtyCS"
+    )
     visit_type: Optional[List[Concept]] = None
     visit_type_cs: Optional[ConceptSetSelection] = Field(None, alias="VisitTypeCS")
 
 
 Criteria = Annotated[
-    Union[
-        ConditionOccurrence,
-        DrugExposure
-    ],
-    Field(discriminator='criteria_type'),
-    BeforeValidator(criteria_deserializer)
+    Union[ConditionOccurrence, DrugExposure],
+    Field(discriminator="criteria_type"),
+    BeforeValidator(criteria_deserializer),
 ]
 
 
@@ -164,4 +176,6 @@ CriteriaGroup.model_rebuild()
 class PrimaryCriteria(CirceModel):
     criteria_list: List[Criteria]
     observation_window: ObservationFilter
-    primary_limit: ResultLimit = Field(default_factory=ResultLimit, alias="PrimaryCriteriaLimit")
+    primary_limit: ResultLimit = Field(
+        default_factory=ResultLimit, alias="PrimaryCriteriaLimit"
+    )

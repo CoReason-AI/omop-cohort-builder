@@ -1,16 +1,19 @@
-import json
 from pydantic import TypeAdapter
-from src.omop_cohort_builder.domain import ConditionOccurrence, Criteria, DrugExposure, PrimaryCriteria, ObservationFilter, ResultLimit, criteria_deserializer
+from omop_cohort_builder.domain import (
+    ConditionOccurrence,
+    Criteria,
+    DrugExposure,
+    PrimaryCriteria,
+    criteria_deserializer,
+)
+
 
 def test_condition_occurrence_serialization():
     json_data = {
         "ConditionOccurrence": {
             "CodesetId": 1,
             "First": True,
-            "Age": {
-                "Value": 25,
-                "Op": "gt"
-            }
+            "Age": {"Value": 25, "Op": "gt"},
         }
     }
 
@@ -28,15 +31,13 @@ def test_condition_occurrence_serialization():
     output_json = adapter.dump_python(obj, by_alias=True, exclude_none=True)
     assert output_json == json_data
 
+
 def test_drug_exposure_serialization():
     json_data = {
         "DrugExposure": {
             "CodesetId": 2,
             "DrugTypeExclude": False,
-            "Refills": {
-                "Value": 1,
-                "Op": "eq"
-            }
+            "Refills": {"Value": 1, "Op": "eq"},
         }
     }
 
@@ -51,28 +52,15 @@ def test_drug_exposure_serialization():
     output_json = adapter.dump_python(obj, by_alias=True, exclude_none=True)
     assert output_json == json_data
 
+
 def test_primary_criteria_serialization():
     json_data = {
         "CriteriaList": [
-            {
-                "ConditionOccurrence": {
-                    "CodesetId": 1
-                }
-            },
-            {
-                "DrugExposure": {
-                    "CodesetId": 2,
-                    "DrugTypeExclude": False
-                }
-            }
+            {"ConditionOccurrence": {"CodesetId": 1}},
+            {"DrugExposure": {"CodesetId": 2, "DrugTypeExclude": False}},
         ],
-        "ObservationWindow": {
-            "PriorDays": 365,
-            "PostDays": 0
-        },
-        "PrimaryCriteriaLimit": {
-            "Type": "First"
-        }
+        "ObservationWindow": {"PriorDays": 365, "PostDays": 0},
+        "PrimaryCriteriaLimit": {"Type": "First"},
     }
 
     obj = PrimaryCriteria.model_validate(json_data)
@@ -84,6 +72,7 @@ def test_primary_criteria_serialization():
     output_json = obj.model_dump(by_alias=True, exclude_none=True)
     assert output_json == json_data
 
+
 def test_internal_serialization():
     # Test serialization by_alias=False (Pythonic names)
     obj = ConditionOccurrence(codeset_id=99)
@@ -94,6 +83,7 @@ def test_internal_serialization():
     assert "codeset_id" in inner
     assert inner["codeset_id"] == 99
     assert "criteria_type" not in inner
+
 
 def test_criteria_deserializer_direct():
     input_data = {"ConditionOccurrence": {"CodesetId": 1}}

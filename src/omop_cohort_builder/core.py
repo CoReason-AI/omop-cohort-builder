@@ -1,6 +1,6 @@
 from enum import Enum
-from typing import Optional, Literal
-from pydantic import BaseModel, Field, ConfigDict
+from typing import Optional
+from pydantic import BaseModel, ConfigDict
 
 
 def to_pascal(snake: str) -> str:
@@ -9,9 +9,7 @@ def to_pascal(snake: str) -> str:
 
 class CirceModel(BaseModel):
     model_config = ConfigDict(
-        alias_generator=to_pascal,
-        populate_by_name=True,
-        use_enum_values=True
+        alias_generator=to_pascal, populate_by_name=True, use_enum_values=True
     )
 
 
