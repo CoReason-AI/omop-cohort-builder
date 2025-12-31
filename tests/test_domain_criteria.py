@@ -85,7 +85,7 @@ def test_condition_occurrence_serialization():
     assert inner["StopReason"] == {"Text": "Healed", "Op": "eq"}
     assert inner["Age"] == {"Value": 30.0, "Op": "gt", "Extent": None}
 
-    assert inner["GenderCS"] == {"CodesetId": 20, "IsExclusion": False}
+    assert inner["GenderCS"] == {"CodesetId": 20, "IsExclusion": None}
 
     assert inner["DateAdjustment"] == {
         "StartWith": "START_DATE",
