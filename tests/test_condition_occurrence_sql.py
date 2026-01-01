@@ -18,9 +18,7 @@ def normalize(s):
 
 def test_build_condition_occurrence_stop_reason():
     qb = QueryBuilder()
-    criteria = ConditionOccurrence(
-        stop_reason=TextFilter(text="resolved", op="eq")
-    )
+    criteria = ConditionOccurrence(stop_reason=TextFilter(text="resolved", op="eq"))
 
     query = qb.build_criteria(criteria)
     sql = str(compile_query(query))
