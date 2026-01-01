@@ -62,6 +62,19 @@ class QueryBuilder:
                 == criteria.condition_source_concept
             )
 
+        # 3. Stop Reason (TextFilter)
+        if criteria.stop_reason:
+            query = self._apply_text_filter(
+                query, condition_occurrence.c.stop_reason, criteria.stop_reason
+            )
+
+        # 4. Condition Status (List of Concepts)
+        if criteria.condition_status:
+            concept_ids = [c.concept_id for c in criteria.condition_status]
+            query = query.where(
+                condition_occurrence.c.condition_status_concept_id.in_(concept_ids)
+            )
+
         return query
 
     @build_criteria.register
