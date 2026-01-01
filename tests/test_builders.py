@@ -9,9 +9,20 @@ from omop_cohort_builder.domain import (
     DrugExposure,
     VisitOccurrence,
     ProcedureOccurrence,
-    LocationRegion,
 )
-from omop_cohort_builder.base import TextFilter, NumericRange, Concept, DateRange
+from omop_cohort_builder.base import (
+    TextFilter,
+    NumericRange,
+    Concept,
+    DateRange,
+    CirceModel,
+)
+
+
+class UnimplementedCriteria(CirceModel):
+    """Dummy criteria for testing NotImplementedError."""
+
+    pass
 
 
 def compile_query(query):
@@ -98,8 +109,8 @@ def test_condition_occurrence_multiple_filters():
 
 def test_unimplemented_criteria_raises_error():
     """Test that unimplemented criteria types raise NotImplementedError."""
-    # Using LocationRegion as a dummy unimplemented criteria
-    criteria = LocationRegion()
+    # Using a dummy criteria that is NOT implemented in QueryBuilder
+    criteria = UnimplementedCriteria()
     builder = QueryBuilder()
 
     with pytest.raises(NotImplementedError) as exc:
