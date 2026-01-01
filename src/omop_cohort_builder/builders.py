@@ -1147,21 +1147,33 @@ class QueryBuilder:
             concept_ids = [c.concept_id for c in criteria.gender]
             query = query.where(person.c.gender_concept_id.in_(concept_ids))
 
-        # TODO: Implement gender_cs (ConceptSetSelection)
+        # 2b. Gender (ConceptSetSelection)
+        if criteria.gender_cs:
+            query = self._apply_concept_set_selection(
+                query, person.c.gender_concept_id, criteria.gender_cs
+            )
 
         # 3. Race (List of Concepts) -> person.race_concept_id
         if criteria.race:
             concept_ids = [c.concept_id for c in criteria.race]
             query = query.where(person.c.race_concept_id.in_(concept_ids))
 
-        # TODO: Implement race_cs (ConceptSetSelection)
+        # 3b. Race (ConceptSetSelection)
+        if criteria.race_cs:
+            query = self._apply_concept_set_selection(
+                query, person.c.race_concept_id, criteria.race_cs
+            )
 
         # 4. Ethnicity (List of Concepts) -> person.ethnicity_concept_id
         if criteria.ethnicity:
             concept_ids = [c.concept_id for c in criteria.ethnicity]
             query = query.where(person.c.ethnicity_concept_id.in_(concept_ids))
 
-        # TODO: Implement ethnicity_cs (ConceptSetSelection)
+        # 4b. Ethnicity (ConceptSetSelection)
+        if criteria.ethnicity_cs:
+            query = self._apply_concept_set_selection(
+                query, person.c.ethnicity_concept_id, criteria.ethnicity_cs
+            )
 
         # 5. Occurrence Start Date -> observation_period_start_date
         if criteria.occurrence_start_date:
