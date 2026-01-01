@@ -44,6 +44,7 @@ from omop_cohort_builder.schema import (
     location_history,
     location,
     person,
+    provider,
 )
 
 
@@ -765,6 +766,33 @@ class QueryBuilder:
         """
         query = select(procedure_occurrence)
 
+        # Joins: We identify which tables need to be joined based on the criteria present.
+        # This prevents duplicate joins if multiple fields require the same table.
+        # Note: SQLAlchemy's join() method typically handles duplicate joins intelligently if using table objects,
+        # but explicit checks are safer and clearer.
+        join_person = criteria.age or criteria.gender or criteria.gender_cs
+        join_provider = criteria.provider_specialty or criteria.provider_specialty_cs
+        join_visit = criteria.visit_type or criteria.visit_type_cs
+
+        if join_person:
+            query = query.join(
+                person, procedure_occurrence.c.person_id == person.c.person_id
+            )
+
+        if join_provider:
+            # We must define the provider table alias or use the table object directly if names are unique.
+            # Here we assume direct use of table objects as imported.
+            query = query.join(
+                provider, procedure_occurrence.c.provider_id == provider.c.provider_id
+            )
+
+        if join_visit:
+            query = query.join(
+                visit_occurrence,
+                procedure_occurrence.c.visit_occurrence_id
+                == visit_occurrence.c.visit_occurrence_id,
+            )
+
         # 0. Codeset ID -> procedure_concept_id IN (...)
         if criteria.codeset_id is not None:
             concept_ids = self._resolve_codeset(criteria.codeset_id)
@@ -775,8 +803,21 @@ class QueryBuilder:
         # 1. Procedure Type (List of Concepts) -> procedure_type_concept_id IN (...)
         if criteria.procedure_type:
             concept_ids = [c.concept_id for c in criteria.procedure_type]
-            query = query.where(
-                procedure_occurrence.c.procedure_type_concept_id.in_(concept_ids)
+            if criteria.procedure_type_exclude:
+                query = query.where(
+                    procedure_occurrence.c.procedure_type_concept_id.notin_(concept_ids)
+                )
+            else:
+                query = query.where(
+                    procedure_occurrence.c.procedure_type_concept_id.in_(concept_ids)
+                )
+
+        # 1b. Procedure Type (ConceptSetSelection)
+        if criteria.procedure_type_cs:
+            query = self._apply_concept_set_selection(
+                query,
+                procedure_occurrence.c.procedure_type_concept_id,
+                criteria.procedure_type_cs,
             )
 
         # 2. Modifier (List of Concepts) -> modifier_concept_id IN (...)
@@ -784,6 +825,14 @@ class QueryBuilder:
             concept_ids = [c.concept_id for c in criteria.modifier]
             query = query.where(
                 procedure_occurrence.c.modifier_concept_id.in_(concept_ids)
+            )
+
+        # 2b. Modifier (ConceptSetSelection)
+        if criteria.modifier_cs:
+            query = self._apply_concept_set_selection(
+                query,
+                procedure_occurrence.c.modifier_concept_id,
+                criteria.modifier_cs,
             )
 
         # 3. Quantity (NumericRange) -> quantity op value
@@ -805,6 +854,53 @@ class QueryBuilder:
                 query,
                 procedure_occurrence.c.procedure_date,
                 criteria.occurrence_start_date,
+            )
+
+        # 6. Age (NumericRange) -> (Year(procedure_date) - person.year_of_birth)
+        if criteria.age:
+            from sqlalchemy import extract
+
+            age_expr = (
+                extract("year", procedure_occurrence.c.procedure_date)
+                - person.c.year_of_birth
+            )
+            query = self._apply_numeric_filter(query, age_expr, criteria.age)
+
+        # 7. Gender (List of Concepts) -> person.gender_concept_id
+        if criteria.gender:
+            concept_ids = [c.concept_id for c in criteria.gender]
+            query = query.where(person.c.gender_concept_id.in_(concept_ids))
+
+        # 7b. Gender (ConceptSetSelection)
+        if criteria.gender_cs:
+            query = self._apply_concept_set_selection(
+                query, person.c.gender_concept_id, criteria.gender_cs
+            )
+
+        # 8. Provider Specialty (List of Concepts) -> provider.specialty_concept_id
+        if criteria.provider_specialty:
+            concept_ids = [c.concept_id for c in criteria.provider_specialty]
+            query = query.where(provider.c.specialty_concept_id.in_(concept_ids))
+
+        # 8b. Provider Specialty (ConceptSetSelection)
+        if criteria.provider_specialty_cs:
+            query = self._apply_concept_set_selection(
+                query, provider.c.specialty_concept_id, criteria.provider_specialty_cs
+            )
+
+        # 9. Visit Type (List of Concepts) -> visit_occurrence.visit_type_concept_id
+        if criteria.visit_type:
+            concept_ids = [c.concept_id for c in criteria.visit_type]
+            query = query.where(
+                visit_occurrence.c.visit_type_concept_id.in_(concept_ids)
+            )
+
+        # 9b. Visit Type (ConceptSetSelection)
+        if criteria.visit_type_cs:
+            query = self._apply_concept_set_selection(
+                query,
+                visit_occurrence.c.visit_type_concept_id,
+                criteria.visit_type_cs,
             )
 
         return query
