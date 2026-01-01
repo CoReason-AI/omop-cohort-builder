@@ -19,6 +19,7 @@ from omop_cohort_builder.domain import (
     Specimen,
     VisitDetail,
     ObservationPeriod,
+    PayerPlanPeriod,
     Criteria,
 )
 from omop_cohort_builder.schema import (
@@ -36,6 +37,7 @@ from omop_cohort_builder.schema import (
     specimen,
     visit_detail,
     observation_period,
+    payer_plan_period,
 )
 
 
@@ -777,6 +779,75 @@ class QueryBuilder:
         # TODO: Implement user_defined_period (requires complex logic)
         # TODO: Implement period_type_cs (ConceptSetSelection)
         # TODO: Implement age_at_start, age_at_end (requires Person join)
+
+        return query
+
+    @build_criteria.register
+    def _build_payer_plan_period(self, criteria: PayerPlanPeriod) -> Select:
+        """
+        Builds a SQL query for PayerPlanPeriod criteria.
+        """
+        query = select(payer_plan_period)
+
+        # 1. Period Start Date -> payer_plan_period_start_date
+        if criteria.period_start_date:
+            query = self._apply_date_filter(
+                query,
+                payer_plan_period.c.payer_plan_period_start_date,
+                criteria.period_start_date,
+            )
+
+        # 2. Period End Date -> payer_plan_period_end_date
+        if criteria.period_end_date:
+            query = self._apply_date_filter(
+                query,
+                payer_plan_period.c.payer_plan_period_end_date,
+                criteria.period_end_date,
+            )
+
+        # 3. Period Length -> (payer_plan_period_end_date - payer_plan_period_start_date)
+        if criteria.period_length:
+            length_expr = (
+                payer_plan_period.c.payer_plan_period_end_date
+                - payer_plan_period.c.payer_plan_period_start_date
+            )
+            query = self._apply_numeric_filter(
+                query, length_expr, criteria.period_length
+            )
+
+        # 4. Payer Source Concept -> payer_source_concept_id
+        if criteria.payer_source_concept is not None:
+            query = query.where(
+                payer_plan_period.c.payer_source_concept_id
+                == criteria.payer_source_concept
+            )
+
+        # 5. Plan Source Concept -> plan_source_concept_id
+        if criteria.plan_source_concept is not None:
+            query = query.where(
+                payer_plan_period.c.plan_source_concept_id
+                == criteria.plan_source_concept
+            )
+
+        # 6. Sponsor Source Concept -> sponsor_source_concept_id
+        if criteria.sponsor_source_concept is not None:
+            query = query.where(
+                payer_plan_period.c.sponsor_source_concept_id
+                == criteria.sponsor_source_concept
+            )
+
+        # 7. Stop Reason Source Concept -> stop_reason_source_concept_id
+        if criteria.stop_reason_source_concept is not None:
+            query = query.where(
+                payer_plan_period.c.stop_reason_source_concept_id
+                == criteria.stop_reason_source_concept
+            )
+
+        # TODO: Implement user_defined_period (requires complex logic)
+        # TODO: Implement age_at_start, age_at_end, gender (requires Person join)
+        # TODO: Implement payer_concept, plan_concept, sponsor_concept, stop_reason_concept
+        # (These columns are not standard in OMOP CDM v5.4 payer_plan_period table,
+        # but exist in the Criteria model.)
 
         return query
 
