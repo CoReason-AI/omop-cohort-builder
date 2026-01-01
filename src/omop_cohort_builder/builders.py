@@ -366,57 +366,80 @@ class QueryBuilder:
         """
         query = select(drug_exposure)
 
-        # 1. Drug Type (List of Concepts) -> drug_type_concept_id IN (...)
+        # 1. Occurrence Start Date -> drug_exposure_start_date
+        if criteria.occurrence_start_date:
+            query = self._apply_date_filter(
+                query,
+                drug_exposure.c.drug_exposure_start_date,
+                criteria.occurrence_start_date,
+            )
+
+        # 2. Occurrence End Date -> drug_exposure_end_date
+        if criteria.occurrence_end_date:
+            query = self._apply_date_filter(
+                query,
+                drug_exposure.c.drug_exposure_end_date,
+                criteria.occurrence_end_date,
+            )
+
+        # 3. Drug Type (List of Concepts) -> drug_type_concept_id IN (...)
         if criteria.drug_type:
             concept_ids = [c.concept_id for c in criteria.drug_type]
-            query = query.where(drug_exposure.c.drug_type_concept_id.in_(concept_ids))
+            if criteria.drug_type_exclude:
+                query = query.where(
+                    drug_exposure.c.drug_type_concept_id.notin_(concept_ids)
+                )
+            else:
+                query = query.where(
+                    drug_exposure.c.drug_type_concept_id.in_(concept_ids)
+                )
 
         # TODO: Implement drug_type_cs (ConceptSet)
 
-        # 2. Stop Reason (TextFilter) -> stop_reason LIKE ...
+        # 4. Stop Reason (TextFilter) -> stop_reason LIKE ...
         if criteria.stop_reason:
             query = self._apply_text_filter(
                 query, drug_exposure.c.stop_reason, criteria.stop_reason
             )
 
-        # 3. Refills (NumericRange) -> refills op value
+        # 5. Refills (NumericRange) -> refills op value
         if criteria.refills:
             query = self._apply_numeric_filter(
                 query, drug_exposure.c.refills, criteria.refills
             )
 
-        # 4. Quantity (NumericRange) -> quantity op value
+        # 6. Quantity (NumericRange) -> quantity op value
         if criteria.quantity:
             query = self._apply_numeric_filter(
                 query, drug_exposure.c.quantity, criteria.quantity
             )
 
-        # 5. Days Supply (NumericRange) -> days_supply op value
+        # 7. Days Supply (NumericRange) -> days_supply op value
         if criteria.days_supply:
             query = self._apply_numeric_filter(
                 query, drug_exposure.c.days_supply, criteria.days_supply
             )
 
-        # 6. Route Concept (List of Concepts) -> route_concept_id IN (...)
+        # 8. Route Concept (List of Concepts) -> route_concept_id IN (...)
         if criteria.route_concept:
             concept_ids = [c.concept_id for c in criteria.route_concept]
             query = query.where(drug_exposure.c.route_concept_id.in_(concept_ids))
 
         # TODO: Implement route_concept_cs
 
-        # 7. Lot Number (TextFilter) -> lot_number LIKE ...
+        # 9. Lot Number (TextFilter) -> lot_number LIKE ...
         if criteria.lot_number:
             query = self._apply_text_filter(
                 query, drug_exposure.c.lot_number, criteria.lot_number
             )
 
-        # 8. Drug Source Concept (int) -> drug_source_concept_id = ...
+        # 10. Drug Source Concept (int) -> drug_source_concept_id = ...
         if criteria.drug_source_concept is not None:
             query = query.where(
                 drug_exposure.c.drug_source_concept_id == criteria.drug_source_concept
             )
 
-        # 9. Dose Unit (List of Concepts)
+        # 11. Dose Unit (List of Concepts)
         # TODO: Implement dose_unit.
         # This requires joining to DRUG_STRENGTH or DOSE_ERA which is not yet supported in this atomic unit.
         # The drug_exposure table in standard OMOP CDM does not have dose_unit_concept_id.
