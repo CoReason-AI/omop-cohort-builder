@@ -15,6 +15,7 @@ from omop_cohort_builder.domain import (
     DeviceExposure,
     Death,
     Specimen,
+    VisitDetail,
     Criteria,
 )
 from omop_cohort_builder.schema import (
@@ -28,6 +29,7 @@ from omop_cohort_builder.schema import (
     device_exposure,
     death,
     specimen,
+    visit_detail,
 )
 
 
@@ -582,6 +584,51 @@ class QueryBuilder:
                 procedure_occurrence.c.procedure_date,
                 criteria.occurrence_start_date,
             )
+
+        return query
+
+    @build_criteria.register
+    def _build_visit_detail(self, criteria: VisitDetail) -> Select:
+        """
+        Builds a SQL query for VisitDetail criteria.
+        """
+        query = select(visit_detail)
+
+        # 1. Visit Detail Source Concept -> visit_detail_source_concept_id = ...
+        if criteria.visit_detail_source_concept is not None:
+            query = query.where(
+                visit_detail.c.visit_detail_source_concept_id
+                == criteria.visit_detail_source_concept
+            )
+
+        # 2. Visit Detail Start Date -> visit_detail_start_date
+        if criteria.visit_detail_start_date:
+            query = self._apply_date_filter(
+                query,
+                visit_detail.c.visit_detail_start_date,
+                criteria.visit_detail_start_date,
+            )
+
+        # 3. Visit Detail End Date -> visit_detail_end_date
+        if criteria.visit_detail_end_date:
+            query = self._apply_date_filter(
+                query,
+                visit_detail.c.visit_detail_end_date,
+                criteria.visit_detail_end_date,
+            )
+
+        # 4. Visit Detail Length -> (visit_detail_end_date - visit_detail_start_date)
+        if criteria.visit_detail_length:
+            length_expr = (
+                visit_detail.c.visit_detail_end_date
+                - visit_detail.c.visit_detail_start_date
+            )
+            query = self._apply_numeric_filter(
+                query, length_expr, criteria.visit_detail_length
+            )
+
+        # TODO: Implement visit_detail_type_cs (ConceptSetSelection)
+        # TODO: Implement age, gender_cs, provider_specialty_cs, place_of_service_cs (requires joins)
 
         return query
 
