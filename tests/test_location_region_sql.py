@@ -1,5 +1,3 @@
-import pytest
-from sqlalchemy import Date
 from sqlalchemy.dialects import postgresql
 
 from omop_cohort_builder.builders import QueryBuilder
@@ -29,9 +27,7 @@ def test_location_region_basic():
 
 
 def test_location_region_start_date():
-    criteria = LocationRegion(
-        StartDate=DateRange(value="2020-01-01", op="gt")
-    )
+    criteria = LocationRegion(StartDate=DateRange(value="2020-01-01", op="gt"))
     qb = QueryBuilder()
     query = qb.build_criteria(criteria)
     sql = compile_query(query)
@@ -40,9 +36,7 @@ def test_location_region_start_date():
 
 
 def test_location_region_end_date():
-    criteria = LocationRegion(
-        EndDate=DateRange(value="2021-01-01", op="lt")
-    )
+    criteria = LocationRegion(EndDate=DateRange(value="2021-01-01", op="lt"))
     qb = QueryBuilder()
     query = qb.build_criteria(criteria)
     sql = compile_query(query)
