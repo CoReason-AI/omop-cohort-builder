@@ -7,6 +7,7 @@ from sqlalchemy import select, Select
 from omop_cohort_builder.domain import (
     ConditionOccurrence,
     ConditionEra,
+    DrugEra,
     DrugExposure,
     VisitOccurrence,
     ProcedureOccurrence,
@@ -21,6 +22,7 @@ from omop_cohort_builder.domain import (
 from omop_cohort_builder.schema import (
     condition_occurrence,
     condition_era,
+    drug_era,
     drug_exposure,
     visit_occurrence,
     procedure_occurrence,
@@ -124,6 +126,55 @@ class QueryBuilder:
 
         # TODO: Implement codeset_id (requires ConceptSet resolution)
 
+        # TODO: Implement age_at_start, age_at_end, gender (requires Person table join)
+
+        return query
+
+    @build_criteria.register
+    def _build_drug_era(self, criteria: DrugEra) -> Select:
+        """
+        Builds a SQL query for DrugEra criteria.
+        """
+        query = select(drug_era)
+
+        # 1. Era Start Date -> drug_era_start_date
+        if criteria.era_start_date:
+            query = self._apply_date_filter(
+                query,
+                drug_era.c.drug_era_start_date,
+                criteria.era_start_date,
+            )
+
+        # 2. Era End Date -> drug_era_end_date
+        if criteria.era_end_date:
+            query = self._apply_date_filter(
+                query,
+                drug_era.c.drug_era_end_date,
+                criteria.era_end_date,
+            )
+
+        # 3. Occurrence Count -> drug_exposure_count
+        if criteria.occurrence_count:
+            query = self._apply_numeric_filter(
+                query,
+                drug_era.c.drug_exposure_count,
+                criteria.occurrence_count,
+            )
+
+        # 4. Gap Days -> gap_days
+        if criteria.gap_days:
+            query = self._apply_numeric_filter(
+                query,
+                drug_era.c.gap_days,
+                criteria.gap_days,
+            )
+
+        # 5. Era Length -> (drug_era_end_date - drug_era_start_date)
+        if criteria.era_length:
+            length_expr = drug_era.c.drug_era_end_date - drug_era.c.drug_era_start_date
+            query = self._apply_numeric_filter(query, length_expr, criteria.era_length)
+
+        # TODO: Implement codeset_id (requires ConceptSet resolution)
         # TODO: Implement age_at_start, age_at_end, gender (requires Person table join)
 
         return query
