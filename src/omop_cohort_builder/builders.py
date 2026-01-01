@@ -6,6 +6,7 @@ from sqlalchemy import select, Select
 
 from omop_cohort_builder.domain import (
     ConditionOccurrence,
+    ConditionEra,
     DrugExposure,
     VisitOccurrence,
     ProcedureOccurrence,
@@ -14,10 +15,12 @@ from omop_cohort_builder.domain import (
     DeviceExposure,
     Death,
     Specimen,
+    VisitDetail,
     Criteria,
 )
 from omop_cohort_builder.schema import (
     condition_occurrence,
+    condition_era,
     drug_exposure,
     visit_occurrence,
     procedure_occurrence,
@@ -26,6 +29,7 @@ from omop_cohort_builder.schema import (
     device_exposure,
     death,
     specimen,
+    visit_detail,
 )
 
 
@@ -76,6 +80,51 @@ class QueryBuilder:
             query = query.where(
                 condition_occurrence.c.condition_status_concept_id.in_(concept_ids)
             )
+
+        return query
+
+    @build_criteria.register
+    def _build_condition_era(self, criteria: ConditionEra) -> Select:
+        """
+        Builds a SQL query for ConditionEra criteria.
+        """
+        query = select(condition_era)
+
+        # 1. Era Start Date -> condition_era_start_date
+        if criteria.era_start_date:
+            query = self._apply_date_filter(
+                query,
+                condition_era.c.condition_era_start_date,
+                criteria.era_start_date,
+            )
+
+        # 2. Era End Date -> condition_era_end_date
+        if criteria.era_end_date:
+            query = self._apply_date_filter(
+                query,
+                condition_era.c.condition_era_end_date,
+                criteria.era_end_date,
+            )
+
+        # 3. Occurrence Count -> condition_occurrence_count
+        if criteria.occurrence_count:
+            query = self._apply_numeric_filter(
+                query,
+                condition_era.c.condition_occurrence_count,
+                criteria.occurrence_count,
+            )
+
+        # 4. Era Length -> (condition_era_end_date - condition_era_start_date)
+        if criteria.era_length:
+            length_expr = (
+                condition_era.c.condition_era_end_date
+                - condition_era.c.condition_era_start_date
+            )
+            query = self._apply_numeric_filter(query, length_expr, criteria.era_length)
+
+        # TODO: Implement codeset_id (requires ConceptSet resolution)
+
+        # TODO: Implement age_at_start, age_at_end, gender (requires Person table join)
 
         return query
 
@@ -535,6 +584,51 @@ class QueryBuilder:
                 procedure_occurrence.c.procedure_date,
                 criteria.occurrence_start_date,
             )
+
+        return query
+
+    @build_criteria.register
+    def _build_visit_detail(self, criteria: VisitDetail) -> Select:
+        """
+        Builds a SQL query for VisitDetail criteria.
+        """
+        query = select(visit_detail)
+
+        # 1. Visit Detail Source Concept -> visit_detail_source_concept_id = ...
+        if criteria.visit_detail_source_concept is not None:
+            query = query.where(
+                visit_detail.c.visit_detail_source_concept_id
+                == criteria.visit_detail_source_concept
+            )
+
+        # 2. Visit Detail Start Date -> visit_detail_start_date
+        if criteria.visit_detail_start_date:
+            query = self._apply_date_filter(
+                query,
+                visit_detail.c.visit_detail_start_date,
+                criteria.visit_detail_start_date,
+            )
+
+        # 3. Visit Detail End Date -> visit_detail_end_date
+        if criteria.visit_detail_end_date:
+            query = self._apply_date_filter(
+                query,
+                visit_detail.c.visit_detail_end_date,
+                criteria.visit_detail_end_date,
+            )
+
+        # 4. Visit Detail Length -> (visit_detail_end_date - visit_detail_start_date)
+        if criteria.visit_detail_length:
+            length_expr = (
+                visit_detail.c.visit_detail_end_date
+                - visit_detail.c.visit_detail_start_date
+            )
+            query = self._apply_numeric_filter(
+                query, length_expr, criteria.visit_detail_length
+            )
+
+        # TODO: Implement visit_detail_type_cs (ConceptSetSelection)
+        # TODO: Implement age, gender_cs, provider_specialty_cs, place_of_service_cs (requires joins)
 
         return query
 
