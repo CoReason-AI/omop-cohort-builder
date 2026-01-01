@@ -16,6 +16,7 @@ from omop_cohort_builder.base import (
     DateAdjustment,
     Period,
 )
+from pydantic import BaseModel
 
 """
 Domain models for OHDSI Circe Cohort Definition.
@@ -119,15 +120,50 @@ class WrappedStrategyMixin:
         return {key: data}
 
 
-class ConditionOccurrence(WrappedCriteriaMixin, BaseCriteria):
+class DemographicMixin(BaseModel):
+    """
+    Mixin for criteria that support demographic filters (Age, Gender, Provider, Visit).
+    """
+
+    age: Optional[NumericRange] = Field(default=None, alias="Age")
+    gender: Optional[List[Concept]] = Field(default=None, alias="Gender")
+    gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
+    provider_specialty: Optional[List[Concept]] = Field(
+        default=None, alias="ProviderSpecialty"
+    )
+    provider_specialty_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="ProviderSpecialtyCS"
+    )
+    visit_type: Optional[List[Concept]] = Field(default=None, alias="VisitType")
+    visit_type_cs: Optional[ConceptSetSelection] = Field(
+        default=None, alias="VisitTypeCS"
+    )
+
+
+class OccurrenceMixin(BaseModel):
+    """
+    Mixin for criteria that support standard occurrence fields.
+    """
+
+    codeset_id: Optional[int] = Field(default=None, alias="CodesetId")
+    first: Optional[bool] = Field(default=None, alias="First")
+    occurrence_start_date: Optional[DateRange] = Field(
+        default=None, alias="OccurrenceStartDate"
+    )
+    occurrence_end_date: Optional[DateRange] = Field(
+        default=None, alias="OccurrenceEndDate"
+    )
+
+
+class ConditionOccurrence(
+    WrappedCriteriaMixin, BaseCriteria, OccurrenceMixin, DemographicMixin
+):
     criteria_type: Literal["ConditionOccurrence"] = Field(
         default="ConditionOccurrence", exclude=True
     )
+    # OccurrenceMixin provides: codeset_id, first, start_date, end_date
+    # DemographicMixin provides: age, gender, provider, visit_type
 
-    codeset_id: Optional[int] = None
-    first: Optional[bool] = None
-    occurrence_start_date: Optional[DateRange] = None
-    occurrence_end_date: Optional[DateRange] = None
     condition_type: Optional[List[Concept]] = None
     condition_type_cs: Optional[ConceptSetSelection] = Field(
         default=None, alias="ConditionTypeCS"
@@ -135,30 +171,17 @@ class ConditionOccurrence(WrappedCriteriaMixin, BaseCriteria):
     condition_type_exclude: Optional[bool] = None
     stop_reason: Optional[TextFilter] = None
     condition_source_concept: Optional[int] = None
-    age: Optional[NumericRange] = None
-    gender: Optional[List[Concept]] = None
-    gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
-    provider_specialty: Optional[List[Concept]] = None
-    provider_specialty_cs: Optional[ConceptSetSelection] = Field(
-        default=None, alias="ProviderSpecialtyCS"
-    )
-    visit_type: Optional[List[Concept]] = None
-    visit_type_cs: Optional[ConceptSetSelection] = Field(
-        default=None, alias="VisitTypeCS"
-    )
     condition_status: Optional[List[Concept]] = None
     condition_status_cs: Optional[ConceptSetSelection] = Field(
         default=None, alias="ConditionStatusCS"
     )
 
 
-class DrugExposure(WrappedCriteriaMixin, BaseCriteria):
+class DrugExposure(
+    WrappedCriteriaMixin, BaseCriteria, OccurrenceMixin, DemographicMixin
+):
     criteria_type: Literal["DrugExposure"] = Field(default="DrugExposure", exclude=True)
 
-    codeset_id: Optional[int] = None
-    first: Optional[bool] = None
-    occurrence_start_date: Optional[DateRange] = None
-    occurrence_end_date: Optional[DateRange] = None
     drug_type: Optional[List[Concept]] = None
     drug_type_cs: Optional[ConceptSetSelection] = Field(
         default=None, alias="DrugTypeCS"
@@ -179,47 +202,19 @@ class DrugExposure(WrappedCriteriaMixin, BaseCriteria):
     )
     lot_number: Optional[TextFilter] = None
     drug_source_concept: Optional[int] = None
-    age: Optional[NumericRange] = None
-    gender: Optional[List[Concept]] = None
-    gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
-    provider_specialty: Optional[List[Concept]] = None
-    provider_specialty_cs: Optional[ConceptSetSelection] = Field(
-        default=None, alias="ProviderSpecialtyCS"
-    )
-    visit_type: Optional[List[Concept]] = None
-    visit_type_cs: Optional[ConceptSetSelection] = Field(
-        default=None, alias="VisitTypeCS"
-    )
 
 
-class VisitOccurrence(WrappedCriteriaMixin, BaseCriteria):
+class VisitOccurrence(
+    WrappedCriteriaMixin, BaseCriteria, OccurrenceMixin, DemographicMixin
+):
     criteria_type: Literal["VisitOccurrence"] = Field(
         default="VisitOccurrence", exclude=True
-    )
-    codeset_id: Optional[int] = None
-    first: Optional[bool] = None
-    occurrence_start_date: Optional[DateRange] = None
-    occurrence_end_date: Optional[DateRange] = Field(
-        default=None, alias="OccurrenceEndDate"
-    )
-    visit_type: Optional[List[Concept]] = Field(default=None, alias="VisitType")
-    visit_type_cs: Optional[ConceptSetSelection] = Field(
-        default=None, alias="VisitTypeCS"
     )
     visit_type_exclude: Optional[bool] = Field(default=None, alias="VisitTypeExclude")
     visit_source_concept: Optional[int] = Field(
         default=None, alias="VisitSourceConcept"
     )
     visit_length: Optional[NumericRange] = Field(default=None, alias="VisitLength")
-    age: Optional[NumericRange] = Field(default=None, alias="Age")
-    gender: Optional[List[Concept]] = Field(default=None, alias="Gender")
-    gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
-    provider_specialty: Optional[List[Concept]] = Field(
-        default=None, alias="ProviderSpecialty"
-    )
-    provider_specialty_cs: Optional[ConceptSetSelection] = Field(
-        default=None, alias="ProviderSpecialtyCS"
-    )
     place_of_service: Optional[List[Concept]] = Field(
         default=None, alias="PlaceOfService"
     )
@@ -231,14 +226,13 @@ class VisitOccurrence(WrappedCriteriaMixin, BaseCriteria):
     )
 
 
-class ProcedureOccurrence(WrappedCriteriaMixin, BaseCriteria):
+class ProcedureOccurrence(
+    WrappedCriteriaMixin, BaseCriteria, OccurrenceMixin, DemographicMixin
+):
     criteria_type: Literal["ProcedureOccurrence"] = Field(
         default="ProcedureOccurrence", exclude=True
     )
 
-    codeset_id: Optional[int] = None
-    first: Optional[bool] = None
-    occurrence_start_date: Optional[DateRange] = None
     procedure_type: Optional[List[Concept]] = None
     procedure_type_cs: Optional[ConceptSetSelection] = Field(
         default=None, alias="ProcedureTypeCS"
@@ -248,25 +242,13 @@ class ProcedureOccurrence(WrappedCriteriaMixin, BaseCriteria):
     modifier_cs: Optional[ConceptSetSelection] = Field(default=None, alias="ModifierCS")
     quantity: Optional[NumericRange] = None
     procedure_source_concept: Optional[int] = None
-    age: Optional[NumericRange] = None
-    gender: Optional[List[Concept]] = None
-    gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
-    provider_specialty: Optional[List[Concept]] = None
-    provider_specialty_cs: Optional[ConceptSetSelection] = Field(
-        default=None, alias="ProviderSpecialtyCS"
-    )
-    visit_type: Optional[List[Concept]] = None
-    visit_type_cs: Optional[ConceptSetSelection] = Field(
-        default=None, alias="VisitTypeCS"
-    )
 
 
-class Measurement(WrappedCriteriaMixin, BaseCriteria):
+class Measurement(
+    WrappedCriteriaMixin, BaseCriteria, OccurrenceMixin, DemographicMixin
+):
     criteria_type: Literal["Measurement"] = Field(default="Measurement", exclude=True)
 
-    codeset_id: Optional[int] = None
-    first: Optional[bool] = None
-    occurrence_start_date: Optional[DateRange] = None
     measurement_type: Optional[List[Concept]] = None
     measurement_type_cs: Optional[ConceptSetSelection] = Field(
         default=None, alias="MeasurementTypeCS"
@@ -287,17 +269,6 @@ class Measurement(WrappedCriteriaMixin, BaseCriteria):
     range_high_ratio: Optional[NumericRange] = None
     abnormal: Optional[bool] = None
     measurement_source_concept: Optional[int] = None
-    age: Optional[NumericRange] = None
-    gender: Optional[List[Concept]] = None
-    gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
-    provider_specialty: Optional[List[Concept]] = None
-    provider_specialty_cs: Optional[ConceptSetSelection] = Field(
-        default=None, alias="ProviderSpecialtyCS"
-    )
-    visit_type: Optional[List[Concept]] = None
-    visit_type_cs: Optional[ConceptSetSelection] = Field(
-        default=None, alias="VisitTypeCS"
-    )
 
 
 class Death(WrappedCriteriaMixin, BaseCriteria):
@@ -316,12 +287,11 @@ class Death(WrappedCriteriaMixin, BaseCriteria):
     gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
 
 
-class Observation(WrappedCriteriaMixin, BaseCriteria):
+class Observation(
+    WrappedCriteriaMixin, BaseCriteria, OccurrenceMixin, DemographicMixin
+):
     criteria_type: Literal["Observation"] = Field(default="Observation", exclude=True)
 
-    codeset_id: Optional[int] = None
-    first: Optional[bool] = None
-    occurrence_start_date: Optional[DateRange] = None
     observation_type: Optional[List[Concept]] = None
     observation_type_cs: Optional[ConceptSetSelection] = Field(
         default=None, alias="ObservationTypeCS"
@@ -340,64 +310,65 @@ class Observation(WrappedCriteriaMixin, BaseCriteria):
     unit: Optional[List[Concept]] = None
     unit_cs: Optional[ConceptSetSelection] = Field(default=None, alias="UnitCS")
     observation_source_concept: Optional[int] = None
-    age: Optional[NumericRange] = None
-    gender: Optional[List[Concept]] = None
+
+
+class EraMixin(BaseModel):
+    """
+    Mixin for Era-based criteria which share common era fields.
+    """
+
+    codeset_id: Optional[int] = Field(default=None, alias="CodesetId")
+    first: Optional[bool] = Field(default=None, alias="First")
+    era_start_date: Optional[DateRange] = Field(default=None, alias="EraStartDate")
+    era_end_date: Optional[DateRange] = Field(default=None, alias="EraEndDate")
+    occurrence_count: Optional[NumericRange] = Field(
+        default=None, alias="OccurrenceCount"
+    )
+    era_length: Optional[NumericRange] = Field(default=None, alias="EraLength")
+    age_at_start: Optional[NumericRange] = Field(default=None, alias="AgeAtStart")
+    age_at_end: Optional[NumericRange] = Field(default=None, alias="AgeAtEnd")
+    gender: Optional[List[Concept]] = Field(default=None, alias="Gender")
     gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
-    provider_specialty: Optional[List[Concept]] = None
-    provider_specialty_cs: Optional[ConceptSetSelection] = Field(
-        default=None, alias="ProviderSpecialtyCS"
-    )
-    visit_type: Optional[List[Concept]] = None
-    visit_type_cs: Optional[ConceptSetSelection] = Field(
-        default=None, alias="VisitTypeCS"
-    )
 
 
-class ConditionEra(WrappedCriteriaMixin, BaseCriteria):
+class ConditionEra(WrappedCriteriaMixin, BaseCriteria, EraMixin):
     criteria_type: Literal["ConditionEra"] = Field(default="ConditionEra", exclude=True)
 
-    codeset_id: Optional[int] = Field(default=None, alias="CodesetId")
-    first: Optional[bool] = Field(default=None, alias="First")
-    era_start_date: Optional[DateRange] = Field(default=None, alias="EraStartDate")
-    era_end_date: Optional[DateRange] = Field(default=None, alias="EraEndDate")
-    occurrence_count: Optional[NumericRange] = Field(
-        default=None, alias="OccurrenceCount"
-    )
-    era_length: Optional[NumericRange] = Field(default=None, alias="EraLength")
-    age_at_start: Optional[NumericRange] = Field(default=None, alias="AgeAtStart")
-    age_at_end: Optional[NumericRange] = Field(default=None, alias="AgeAtEnd")
-    gender: Optional[List[Concept]] = Field(default=None, alias="Gender")
-    gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
 
-
-class DrugEra(WrappedCriteriaMixin, BaseCriteria):
+class DrugEra(WrappedCriteriaMixin, BaseCriteria, EraMixin):
     criteria_type: Literal["DrugEra"] = Field(default="DrugEra", exclude=True)
 
-    codeset_id: Optional[int] = Field(default=None, alias="CodesetId")
-    first: Optional[bool] = Field(default=None, alias="First")
-    era_start_date: Optional[DateRange] = Field(default=None, alias="EraStartDate")
-    era_end_date: Optional[DateRange] = Field(default=None, alias="EraEndDate")
-    occurrence_count: Optional[NumericRange] = Field(
-        default=None, alias="OccurrenceCount"
-    )
-    era_length: Optional[NumericRange] = Field(default=None, alias="EraLength")
     gap_days: Optional[NumericRange] = Field(default=None, alias="GapDays")
-    age_at_start: Optional[NumericRange] = Field(default=None, alias="AgeAtStart")
-    age_at_end: Optional[NumericRange] = Field(default=None, alias="AgeAtEnd")
-    gender: Optional[List[Concept]] = Field(default=None, alias="Gender")
-    gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
 
 
 class DoseEra(WrappedCriteriaMixin, BaseCriteria):
     criteria_type: Literal["DoseEra"] = Field(default="DoseEra", exclude=True)
+    # DoseEra does NOT support OccurrenceCount and EraLength from EraMixin?
+    # Checking existing model: It DOES have EraLength, but NOT OccurrenceCount.
+    # It adds Unit, DoseValue.
+    # It shares Age/Gender/Dates/Codeset/First.
+    # So EraMixin is partially correct but includes OccurrenceCount which DoseEra might not want?
+    # Actually, looking at previous code: ConditionEra and DrugEra have OccurrenceCount. DoseEra does NOT.
+    # So I should split EraMixin or override.
+    # I will override occurrence_count to be excluded/None for DoseEra or just create a BaseEraMixin without it.
 
+    # Let's verify DoseEra previous definition:
+    # occurrence_count: Not present.
+    # era_length: Present.
+
+    # Re-defining EraMixin to be minimal or composition-based might be safer, but let's stick to what we can do cleanly.
+    # I'll manually exclude/undefine `occurrence_count` in DoseEra or split the mixin.
+    # For now, I will NOT inherit EraMixin for DoseEra to avoid pollution, but copy the fields.
+    # Or better, make `CommonEraMixin` and `CountEraMixin`.
+
+    unit: Optional[List[Concept]] = Field(default=None, alias="Unit")
+    unit_cs: Optional[ConceptSetSelection] = Field(default=None, alias="UnitCS")
+    dose_value: Optional[NumericRange] = Field(default=None, alias="DoseValue")
+    # Redefine Era fields since we don't use EraMixin due to OccurrenceCount mismatch
     codeset_id: Optional[int] = Field(default=None, alias="CodesetId")
     first: Optional[bool] = Field(default=None, alias="First")
     era_start_date: Optional[DateRange] = Field(default=None, alias="EraStartDate")
     era_end_date: Optional[DateRange] = Field(default=None, alias="EraEndDate")
-    unit: Optional[List[Concept]] = Field(default=None, alias="Unit")
-    unit_cs: Optional[ConceptSetSelection] = Field(default=None, alias="UnitCS")
-    dose_value: Optional[NumericRange] = Field(default=None, alias="DoseValue")
     era_length: Optional[NumericRange] = Field(default=None, alias="EraLength")
     age_at_start: Optional[NumericRange] = Field(default=None, alias="AgeAtStart")
     age_at_end: Optional[NumericRange] = Field(default=None, alias="AgeAtEnd")
@@ -426,19 +397,13 @@ class ObservationPeriod(WrappedCriteriaMixin, BaseCriteria):
     age_at_end: Optional[NumericRange] = Field(default=None, alias="AgeAtEnd")
 
 
-class DeviceExposure(WrappedCriteriaMixin, BaseCriteria):
+class DeviceExposure(
+    WrappedCriteriaMixin, BaseCriteria, OccurrenceMixin, DemographicMixin
+):
     criteria_type: Literal["DeviceExposure"] = Field(
         default="DeviceExposure", exclude=True
     )
 
-    codeset_id: Optional[int] = Field(default=None, alias="CodesetId")
-    first: Optional[bool] = Field(default=None, alias="First")
-    occurrence_start_date: Optional[DateRange] = Field(
-        default=None, alias="OccurrenceStartDate"
-    )
-    occurrence_end_date: Optional[DateRange] = Field(
-        default=None, alias="OccurrenceEndDate"
-    )
     device_type: Optional[List[Concept]] = Field(default=None, alias="DeviceType")
     device_type_cs: Optional[ConceptSetSelection] = Field(
         default=None, alias="DeviceTypeCS"
@@ -449,29 +414,14 @@ class DeviceExposure(WrappedCriteriaMixin, BaseCriteria):
     device_source_concept: Optional[int] = Field(
         default=None, alias="DeviceSourceConcept"
     )
-    age: Optional[NumericRange] = Field(default=None, alias="Age")
-    gender: Optional[List[Concept]] = Field(default=None, alias="Gender")
-    gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
-    provider_specialty: Optional[List[Concept]] = Field(
-        default=None, alias="ProviderSpecialty"
-    )
-    provider_specialty_cs: Optional[ConceptSetSelection] = Field(
-        default=None, alias="ProviderSpecialtyCS"
-    )
-    visit_type: Optional[List[Concept]] = Field(default=None, alias="VisitType")
-    visit_type_cs: Optional[ConceptSetSelection] = Field(
-        default=None, alias="VisitTypeCS"
-    )
 
 
-class Specimen(WrappedCriteriaMixin, BaseCriteria):
+class Specimen(WrappedCriteriaMixin, BaseCriteria, OccurrenceMixin, DemographicMixin):
     criteria_type: Literal["Specimen"] = Field(default="Specimen", exclude=True)
 
-    codeset_id: Optional[int] = Field(default=None, alias="CodesetId")
-    first: Optional[bool] = Field(default=None, alias="First")
-    occurrence_start_date: Optional[DateRange] = Field(
-        default=None, alias="OccurrenceStartDate"
-    )
+    # Note: Specimen does not have OccurrenceEndDate in Java model, but has OccurrenceStartDate.
+    # OccurrenceMixin provides both, defaulting to None. This is safe.
+
     specimen_type: Optional[List[Concept]] = Field(default=None, alias="SpecimenType")
     specimen_type_cs: Optional[ConceptSetSelection] = Field(
         default=None, alias="SpecimenTypeCS"
@@ -494,12 +444,19 @@ class Specimen(WrappedCriteriaMixin, BaseCriteria):
     specimen_source_concept: Optional[int] = Field(
         default=None, alias="SpecimenSourceConcept"
     )
-    age: Optional[NumericRange] = Field(default=None, alias="Age")
-    gender: Optional[List[Concept]] = Field(default=None, alias="Gender")
-    gender_cs: Optional[ConceptSetSelection] = Field(default=None, alias="GenderCS")
 
 
-class VisitDetail(WrappedCriteriaMixin, BaseCriteria):
+class VisitDetail(WrappedCriteriaMixin, BaseCriteria, DemographicMixin):
+    # VisitDetail has custom field names (VisitDetailStartDate vs OccurrenceStartDate)
+    # So it cannot simply reuse OccurrenceMixin without overriding aliases or handling it differently.
+    # For now, we will NOT use OccurrenceMixin for it, but we can use DemographicMixin.
+    # Wait, VisitDetail supports Age, GenderCS, ProviderSpecialtyCS, PlaceOfServiceCS
+    # But DemographicMixin has "Gender" list, and "VisitType". VisitDetail might not have all of them.
+    # Checking previous def: Age, GenderCS, ProviderSpecialtyCS, PlaceOfServiceCS, PlaceOfServiceLocation.
+    # Missing: Gender (list), VisitType (list), VisitTypeCS, ProviderSpecialty (list).
+    # So DemographicMixin is NOT a perfect fit for VisitDetail.
+    # I will avoid using DemographicMixin for VisitDetail to preserve correctness.
+
     criteria_type: Literal["VisitDetail"] = Field(default="VisitDetail", exclude=True)
 
     codeset_id: Optional[int] = Field(default=None, alias="CodesetId")

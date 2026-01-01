@@ -67,6 +67,33 @@ class QueryBuilder:
         """
         return self.concept_set_map.get(codeset_id, [])
 
+    def _apply_codeset_filter(self, query, column, codeset_id: int | None):
+        """Helper to apply standard codeset ID filter."""
+        if codeset_id is not None:
+            concept_ids = self._resolve_codeset(codeset_id)
+            return query.where(column.in_(concept_ids))
+        return query
+
+    def _apply_concept_list_filter(
+        self, query, column, concepts: List | None, exclude: bool | None = False
+    ):
+        """
+        Helper to apply List[Concept] filters, handling optional exclusion logic.
+        """
+        if concepts:
+            concept_ids = [c.concept_id for c in concepts]
+            if exclude:
+                return query.where(column.notin_(concept_ids))
+            else:
+                return query.where(column.in_(concept_ids))
+        return query
+
+    def _apply_equality_filter(self, query, column, value: int | None):
+        """Helper to apply simple equality check if value is not None."""
+        if value is not None:
+            return query.where(column == value)
+        return query
+
     @singledispatchmethod
     def build_criteria(self, criteria: Criteria) -> Select:
         """
@@ -84,35 +111,31 @@ class QueryBuilder:
         query = select(condition_occurrence)
 
         # 0. Codeset ID -> condition_concept_id IN (...)
-        if criteria.codeset_id is not None:
-            concept_ids = self._resolve_codeset(criteria.codeset_id)
-            # If concept_ids is empty, .in_([]) will typically render as false (e.g., IN (NULL) or 1!=1)
-            # which is correct behavior (matches nothing).
-            query = query.where(
-                condition_occurrence.c.condition_concept_id.in_(concept_ids)
-            )
+        query = self._apply_codeset_filter(
+            query, condition_occurrence.c.condition_concept_id, criteria.codeset_id
+        )
 
         # 1. Condition Type (List of Concepts) -> condition_type_concept_id IN (...)
-        if criteria.condition_type:
-            concept_ids = [c.concept_id for c in criteria.condition_type]
-            query = query.where(
-                condition_occurrence.c.condition_type_concept_id.in_(concept_ids)
-            )
+        query = self._apply_concept_list_filter(
+            query,
+            condition_occurrence.c.condition_type_concept_id,
+            criteria.condition_type,
+            exclude=criteria.condition_type_exclude,
+        )
 
         # 1b. Condition Type (ConceptSetSelection)
-        if criteria.condition_type_cs:
-            query = self._apply_concept_set_selection(
-                query,
-                condition_occurrence.c.condition_type_concept_id,
-                criteria.condition_type_cs,
-            )
+        query = self._apply_concept_set_selection(
+            query,
+            condition_occurrence.c.condition_type_concept_id,
+            criteria.condition_type_cs,
+        )
 
         # 2. Condition Source Concept -> condition_source_concept_id = ...
-        if criteria.condition_source_concept is not None:
-            query = query.where(
-                condition_occurrence.c.condition_source_concept_id
-                == criteria.condition_source_concept
-            )
+        query = self._apply_equality_filter(
+            query,
+            condition_occurrence.c.condition_source_concept_id,
+            criteria.condition_source_concept,
+        )
 
         # 3. Stop Reason (TextFilter)
         if criteria.stop_reason:
@@ -121,19 +144,18 @@ class QueryBuilder:
             )
 
         # 4. Condition Status (List of Concepts)
-        if criteria.condition_status:
-            concept_ids = [c.concept_id for c in criteria.condition_status]
-            query = query.where(
-                condition_occurrence.c.condition_status_concept_id.in_(concept_ids)
-            )
+        query = self._apply_concept_list_filter(
+            query,
+            condition_occurrence.c.condition_status_concept_id,
+            criteria.condition_status,
+        )
 
         # 4b. Condition Status (ConceptSetSelection)
-        if criteria.condition_status_cs:
-            query = self._apply_concept_set_selection(
-                query,
-                condition_occurrence.c.condition_status_concept_id,
-                criteria.condition_status_cs,
-            )
+        query = self._apply_concept_set_selection(
+            query,
+            condition_occurrence.c.condition_status_concept_id,
+            criteria.condition_status_cs,
+        )
 
         return query
 
@@ -145,9 +167,9 @@ class QueryBuilder:
         query = select(condition_era)
 
         # 0. Codeset ID -> condition_concept_id IN (...)
-        if criteria.codeset_id is not None:
-            concept_ids = self._resolve_codeset(criteria.codeset_id)
-            query = query.where(condition_era.c.condition_concept_id.in_(concept_ids))
+        query = self._apply_codeset_filter(
+            query, condition_era.c.condition_concept_id, criteria.codeset_id
+        )
 
         # 1. Era Start Date -> condition_era_start_date
         if criteria.era_start_date:
@@ -193,9 +215,9 @@ class QueryBuilder:
         query = select(drug_era)
 
         # 0. Codeset ID -> drug_concept_id IN (...)
-        if criteria.codeset_id is not None:
-            concept_ids = self._resolve_codeset(criteria.codeset_id)
-            query = query.where(drug_era.c.drug_concept_id.in_(concept_ids))
+        query = self._apply_codeset_filter(
+            query, drug_era.c.drug_concept_id, criteria.codeset_id
+        )
 
         # 1. Era Start Date -> drug_era_start_date
         if criteria.era_start_date:
@@ -246,9 +268,9 @@ class QueryBuilder:
         query = select(dose_era)
 
         # 0. Codeset ID -> drug_concept_id IN (...)
-        if criteria.codeset_id is not None:
-            concept_ids = self._resolve_codeset(criteria.codeset_id)
-            query = query.where(dose_era.c.drug_concept_id.in_(concept_ids))
+        query = self._apply_codeset_filter(
+            query, dose_era.c.drug_concept_id, criteria.codeset_id
+        )
 
         # 1. Era Start Date -> dose_era_start_date
         if criteria.era_start_date:
@@ -280,9 +302,9 @@ class QueryBuilder:
             query = self._apply_numeric_filter(query, length_expr, criteria.era_length)
 
         # 5. Unit (List of Concepts) -> unit_concept_id IN (...)
-        if criteria.unit:
-            concept_ids = [c.concept_id for c in criteria.unit]
-            query = query.where(dose_era.c.unit_concept_id.in_(concept_ids))
+        query = self._apply_concept_list_filter(
+            query, dose_era.c.unit_concept_id, criteria.unit
+        )
 
         # TODO: Implement unit_cs (ConceptSetSelection)
         # TODO: Implement age_at_start, age_at_end, gender (requires Person table join)
@@ -297,14 +319,17 @@ class QueryBuilder:
         query = select(specimen)
 
         # 0. Codeset ID -> specimen_concept_id IN (...)
-        if criteria.codeset_id is not None:
-            concept_ids = self._resolve_codeset(criteria.codeset_id)
-            query = query.where(specimen.c.specimen_concept_id.in_(concept_ids))
+        query = self._apply_codeset_filter(
+            query, specimen.c.specimen_concept_id, criteria.codeset_id
+        )
 
         # 1. Specimen Type (List of Concepts) -> specimen_type_concept_id IN (...)
-        if criteria.specimen_type:
-            concept_ids = [c.concept_id for c in criteria.specimen_type]
-            query = query.where(specimen.c.specimen_type_concept_id.in_(concept_ids))
+        query = self._apply_concept_list_filter(
+            query,
+            specimen.c.specimen_type_concept_id,
+            criteria.specimen_type,
+            exclude=criteria.specimen_type_exclude,
+        )
 
         # 2. Quantity (NumericRange)
         if criteria.quantity:
@@ -313,19 +338,19 @@ class QueryBuilder:
             )
 
         # 3. Unit (List of Concepts) -> unit_concept_id IN (...)
-        if criteria.unit:
-            concept_ids = [c.concept_id for c in criteria.unit]
-            query = query.where(specimen.c.unit_concept_id.in_(concept_ids))
+        query = self._apply_concept_list_filter(
+            query, specimen.c.unit_concept_id, criteria.unit
+        )
 
         # 4. Anatomic Site (List of Concepts) -> anatomic_site_concept_id IN (...)
-        if criteria.anatomic_site:
-            concept_ids = [c.concept_id for c in criteria.anatomic_site]
-            query = query.where(specimen.c.anatomic_site_concept_id.in_(concept_ids))
+        query = self._apply_concept_list_filter(
+            query, specimen.c.anatomic_site_concept_id, criteria.anatomic_site
+        )
 
         # 5. Disease Status (List of Concepts) -> disease_status_concept_id IN (...)
-        if criteria.disease_status:
-            concept_ids = [c.concept_id for c in criteria.disease_status]
-            query = query.where(specimen.c.disease_status_concept_id.in_(concept_ids))
+        query = self._apply_concept_list_filter(
+            query, specimen.c.disease_status_concept_id, criteria.disease_status
+        )
 
         # 6. Source ID (TextFilter) -> specimen_source_id LIKE ...
         if criteria.source_id:
@@ -349,16 +374,17 @@ class QueryBuilder:
         query = select(device_exposure)
 
         # 0. Codeset ID -> device_concept_id IN (...)
-        if criteria.codeset_id is not None:
-            concept_ids = self._resolve_codeset(criteria.codeset_id)
-            query = query.where(device_exposure.c.device_concept_id.in_(concept_ids))
+        query = self._apply_codeset_filter(
+            query, device_exposure.c.device_concept_id, criteria.codeset_id
+        )
 
         # 1. Device Type (List of Concepts) -> device_type_concept_id IN (...)
-        if criteria.device_type:
-            concept_ids = [c.concept_id for c in criteria.device_type]
-            query = query.where(
-                device_exposure.c.device_type_concept_id.in_(concept_ids)
-            )
+        query = self._apply_concept_list_filter(
+            query,
+            device_exposure.c.device_type_concept_id,
+            criteria.device_type,
+            exclude=criteria.device_type_exclude,
+        )
 
         # 2. Unique Device ID (TextFilter)
         if criteria.unique_device_id:
@@ -373,11 +399,11 @@ class QueryBuilder:
             )
 
         # 4. Device Source Concept (int)
-        if criteria.device_source_concept is not None:
-            query = query.where(
-                device_exposure.c.device_source_concept_id
-                == criteria.device_source_concept
-            )
+        query = self._apply_equality_filter(
+            query,
+            device_exposure.c.device_source_concept_id,
+            criteria.device_source_concept,
+        )
 
         # 5. Occurrence Start Date -> device_exposure_start_date
         if criteria.occurrence_start_date:
@@ -405,16 +431,17 @@ class QueryBuilder:
         query = select(observation)
 
         # 0. Codeset ID -> observation_concept_id IN (...)
-        if criteria.codeset_id is not None:
-            concept_ids = self._resolve_codeset(criteria.codeset_id)
-            query = query.where(observation.c.observation_concept_id.in_(concept_ids))
+        query = self._apply_codeset_filter(
+            query, observation.c.observation_concept_id, criteria.codeset_id
+        )
 
         # 1. Observation Type (List of Concepts)
-        if criteria.observation_type:
-            concept_ids = [c.concept_id for c in criteria.observation_type]
-            query = query.where(
-                observation.c.observation_type_concept_id.in_(concept_ids)
-            )
+        query = self._apply_concept_list_filter(
+            query,
+            observation.c.observation_type_concept_id,
+            criteria.observation_type,
+            exclude=criteria.observation_type_exclude,
+        )
 
         # 2. Value As Number (NumericRange)
         if criteria.value_as_number:
@@ -429,26 +456,26 @@ class QueryBuilder:
             )
 
         # 4. Value As Concept (List of Concepts)
-        if criteria.value_as_concept:
-            concept_ids = [c.concept_id for c in criteria.value_as_concept]
-            query = query.where(observation.c.value_as_concept_id.in_(concept_ids))
+        query = self._apply_concept_list_filter(
+            query, observation.c.value_as_concept_id, criteria.value_as_concept
+        )
 
         # 5. Qualifier (List of Concepts)
-        if criteria.qualifier:
-            concept_ids = [c.concept_id for c in criteria.qualifier]
-            query = query.where(observation.c.qualifier_concept_id.in_(concept_ids))
+        query = self._apply_concept_list_filter(
+            query, observation.c.qualifier_concept_id, criteria.qualifier
+        )
 
         # 6. Unit (List of Concepts)
-        if criteria.unit:
-            concept_ids = [c.concept_id for c in criteria.unit]
-            query = query.where(observation.c.unit_concept_id.in_(concept_ids))
+        query = self._apply_concept_list_filter(
+            query, observation.c.unit_concept_id, criteria.unit
+        )
 
         # 7. Observation Source Concept (int)
-        if criteria.observation_source_concept is not None:
-            query = query.where(
-                observation.c.observation_source_concept_id
-                == criteria.observation_source_concept
-            )
+        query = self._apply_equality_filter(
+            query,
+            observation.c.observation_source_concept_id,
+            criteria.observation_source_concept,
+        )
 
         # 8. Occurrence Start Date -> observation_date
         if criteria.occurrence_start_date:
@@ -466,21 +493,22 @@ class QueryBuilder:
         query = select(measurement)
 
         # 0. Codeset ID -> measurement_concept_id IN (...)
-        if criteria.codeset_id is not None:
-            concept_ids = self._resolve_codeset(criteria.codeset_id)
-            query = query.where(measurement.c.measurement_concept_id.in_(concept_ids))
+        query = self._apply_codeset_filter(
+            query, measurement.c.measurement_concept_id, criteria.codeset_id
+        )
 
         # 1. Measurement Type (List of Concepts) -> measurement_type_concept_id IN (...)
-        if criteria.measurement_type:
-            concept_ids = [c.concept_id for c in criteria.measurement_type]
-            query = query.where(
-                measurement.c.measurement_type_concept_id.in_(concept_ids)
-            )
+        query = self._apply_concept_list_filter(
+            query,
+            measurement.c.measurement_type_concept_id,
+            criteria.measurement_type,
+            exclude=criteria.measurement_type_exclude,
+        )
 
         # 2. Operator (List of Concepts) -> operator_concept_id IN (...)
-        if criteria.operator:
-            concept_ids = [c.concept_id for c in criteria.operator]
-            query = query.where(measurement.c.operator_concept_id.in_(concept_ids))
+        query = self._apply_concept_list_filter(
+            query, measurement.c.operator_concept_id, criteria.operator
+        )
 
         # 3. Value As Number (NumericRange)
         if criteria.value_as_number:
@@ -489,14 +517,14 @@ class QueryBuilder:
             )
 
         # 4. Value As Concept (List of Concepts) -> value_as_concept_id IN (...)
-        if criteria.value_as_concept:
-            concept_ids = [c.concept_id for c in criteria.value_as_concept]
-            query = query.where(measurement.c.value_as_concept_id.in_(concept_ids))
+        query = self._apply_concept_list_filter(
+            query, measurement.c.value_as_concept_id, criteria.value_as_concept
+        )
 
         # 5. Unit (List of Concepts) -> unit_concept_id IN (...)
-        if criteria.unit:
-            concept_ids = [c.concept_id for c in criteria.unit]
-            query = query.where(measurement.c.unit_concept_id.in_(concept_ids))
+        query = self._apply_concept_list_filter(
+            query, measurement.c.unit_concept_id, criteria.unit
+        )
 
         # 6. Range Low (NumericRange)
         if criteria.range_low:
@@ -549,11 +577,11 @@ class QueryBuilder:
             query = query.where(abnormal_expr)
 
         # 11. Measurement Source Concept (int)
-        if criteria.measurement_source_concept is not None:
-            query = query.where(
-                measurement.c.measurement_source_concept_id
-                == criteria.measurement_source_concept
-            )
+        query = self._apply_equality_filter(
+            query,
+            measurement.c.measurement_source_concept_id,
+            criteria.measurement_source_concept,
+        )
 
         # 12. Occurrence Start Date -> measurement_date
         if criteria.occurrence_start_date:
@@ -571,20 +599,22 @@ class QueryBuilder:
         query = select(death)
 
         # 0. Codeset ID -> cause_concept_id IN (...)
-        if criteria.codeset_id is not None:
-            concept_ids = self._resolve_codeset(criteria.codeset_id)
-            query = query.where(death.c.cause_concept_id.in_(concept_ids))
+        query = self._apply_codeset_filter(
+            query, death.c.cause_concept_id, criteria.codeset_id
+        )
 
         # 1. Death Type (List of Concepts) -> death_type_concept_id IN (...)
-        if criteria.death_type:
-            concept_ids = [c.concept_id for c in criteria.death_type]
-            query = query.where(death.c.death_type_concept_id.in_(concept_ids))
+        query = self._apply_concept_list_filter(
+            query,
+            death.c.death_type_concept_id,
+            criteria.death_type,
+            exclude=criteria.death_type_exclude,
+        )
 
         # 2. Death Source Concept (int) -> cause_source_concept_id = ...
-        if criteria.death_source_concept is not None:
-            query = query.where(
-                death.c.cause_source_concept_id == criteria.death_source_concept
-            )
+        query = self._apply_equality_filter(
+            query, death.c.cause_source_concept_id, criteria.death_source_concept
+        )
 
         # 3. Occurrence Start Date -> death_date
         if criteria.occurrence_start_date:
@@ -602,9 +632,9 @@ class QueryBuilder:
         query = select(drug_exposure)
 
         # 0. Codeset ID -> drug_concept_id IN (...)
-        if criteria.codeset_id is not None:
-            concept_ids = self._resolve_codeset(criteria.codeset_id)
-            query = query.where(drug_exposure.c.drug_concept_id.in_(concept_ids))
+        query = self._apply_codeset_filter(
+            query, drug_exposure.c.drug_concept_id, criteria.codeset_id
+        )
 
         # 1. Occurrence Start Date -> drug_exposure_start_date
         if criteria.occurrence_start_date:
@@ -623,16 +653,12 @@ class QueryBuilder:
             )
 
         # 3. Drug Type (List of Concepts) -> drug_type_concept_id IN (...)
-        if criteria.drug_type:
-            concept_ids = [c.concept_id for c in criteria.drug_type]
-            if criteria.drug_type_exclude:
-                query = query.where(
-                    drug_exposure.c.drug_type_concept_id.notin_(concept_ids)
-                )
-            else:
-                query = query.where(
-                    drug_exposure.c.drug_type_concept_id.in_(concept_ids)
-                )
+        query = self._apply_concept_list_filter(
+            query,
+            drug_exposure.c.drug_type_concept_id,
+            criteria.drug_type,
+            exclude=criteria.drug_type_exclude,
+        )
 
         # TODO: Implement drug_type_cs (ConceptSet)
 
@@ -661,9 +687,9 @@ class QueryBuilder:
             )
 
         # 8. Route Concept (List of Concepts) -> route_concept_id IN (...)
-        if criteria.route_concept:
-            concept_ids = [c.concept_id for c in criteria.route_concept]
-            query = query.where(drug_exposure.c.route_concept_id.in_(concept_ids))
+        query = self._apply_concept_list_filter(
+            query, drug_exposure.c.route_concept_id, criteria.route_concept
+        )
 
         # TODO: Implement route_concept_cs
 
@@ -674,10 +700,11 @@ class QueryBuilder:
             )
 
         # 10. Drug Source Concept (int) -> drug_source_concept_id = ...
-        if criteria.drug_source_concept is not None:
-            query = query.where(
-                drug_exposure.c.drug_source_concept_id == criteria.drug_source_concept
-            )
+        query = self._apply_equality_filter(
+            query,
+            drug_exposure.c.drug_source_concept_id,
+            criteria.drug_source_concept,
+        )
 
         # 11. Dose Unit (List of Concepts)
         if criteria.dose_unit:
@@ -715,23 +742,24 @@ class QueryBuilder:
         query = select(visit_occurrence)
 
         # 0. Codeset ID -> visit_concept_id IN (...)
-        if criteria.codeset_id is not None:
-            concept_ids = self._resolve_codeset(criteria.codeset_id)
-            query = query.where(visit_occurrence.c.visit_concept_id.in_(concept_ids))
+        query = self._apply_codeset_filter(
+            query, visit_occurrence.c.visit_concept_id, criteria.codeset_id
+        )
 
         # 1. Visit Type (List of Concepts) -> visit_type_concept_id IN (...)
-        if criteria.visit_type:
-            concept_ids = [c.concept_id for c in criteria.visit_type]
-            query = query.where(
-                visit_occurrence.c.visit_type_concept_id.in_(concept_ids)
-            )
+        query = self._apply_concept_list_filter(
+            query,
+            visit_occurrence.c.visit_type_concept_id,
+            criteria.visit_type,
+            exclude=criteria.visit_type_exclude,
+        )
 
         # 2. Visit Source Concept -> visit_source_concept_id = ...
-        if criteria.visit_source_concept is not None:
-            query = query.where(
-                visit_occurrence.c.visit_source_concept_id
-                == criteria.visit_source_concept
-            )
+        query = self._apply_equality_filter(
+            query,
+            visit_occurrence.c.visit_source_concept_id,
+            criteria.visit_source_concept,
+        )
 
         # 3. Occurrence Start Date -> visit_start_date
         if criteria.occurrence_start_date:
@@ -766,25 +794,22 @@ class QueryBuilder:
         query = select(procedure_occurrence)
 
         # 0. Codeset ID -> procedure_concept_id IN (...)
-        if criteria.codeset_id is not None:
-            concept_ids = self._resolve_codeset(criteria.codeset_id)
-            query = query.where(
-                procedure_occurrence.c.procedure_concept_id.in_(concept_ids)
-            )
+        query = self._apply_codeset_filter(
+            query, procedure_occurrence.c.procedure_concept_id, criteria.codeset_id
+        )
 
         # 1. Procedure Type (List of Concepts) -> procedure_type_concept_id IN (...)
-        if criteria.procedure_type:
-            concept_ids = [c.concept_id for c in criteria.procedure_type]
-            query = query.where(
-                procedure_occurrence.c.procedure_type_concept_id.in_(concept_ids)
-            )
+        query = self._apply_concept_list_filter(
+            query,
+            procedure_occurrence.c.procedure_type_concept_id,
+            criteria.procedure_type,
+            exclude=criteria.procedure_type_exclude,
+        )
 
         # 2. Modifier (List of Concepts) -> modifier_concept_id IN (...)
-        if criteria.modifier:
-            concept_ids = [c.concept_id for c in criteria.modifier]
-            query = query.where(
-                procedure_occurrence.c.modifier_concept_id.in_(concept_ids)
-            )
+        query = self._apply_concept_list_filter(
+            query, procedure_occurrence.c.modifier_concept_id, criteria.modifier
+        )
 
         # 3. Quantity (NumericRange) -> quantity op value
         if criteria.quantity:
@@ -793,11 +818,11 @@ class QueryBuilder:
             )
 
         # 4. Procedure Source Concept -> procedure_source_concept_id = ...
-        if criteria.procedure_source_concept is not None:
-            query = query.where(
-                procedure_occurrence.c.procedure_source_concept_id
-                == criteria.procedure_source_concept
-            )
+        query = self._apply_equality_filter(
+            query,
+            procedure_occurrence.c.procedure_source_concept_id,
+            criteria.procedure_source_concept,
+        )
 
         # 5. Occurrence Start Date -> procedure_date
         if criteria.occurrence_start_date:
@@ -817,16 +842,16 @@ class QueryBuilder:
         query = select(visit_detail)
 
         # 0. Codeset ID -> visit_detail_concept_id IN (...)
-        if criteria.codeset_id is not None:
-            concept_ids = self._resolve_codeset(criteria.codeset_id)
-            query = query.where(visit_detail.c.visit_detail_concept_id.in_(concept_ids))
+        query = self._apply_codeset_filter(
+            query, visit_detail.c.visit_detail_concept_id, criteria.codeset_id
+        )
 
         # 1. Visit Detail Source Concept -> visit_detail_source_concept_id = ...
-        if criteria.visit_detail_source_concept is not None:
-            query = query.where(
-                visit_detail.c.visit_detail_source_concept_id
-                == criteria.visit_detail_source_concept
-            )
+        query = self._apply_equality_filter(
+            query,
+            visit_detail.c.visit_detail_source_concept_id,
+            criteria.visit_detail_source_concept,
+        )
 
         # 2. Visit Detail Start Date -> visit_detail_start_date
         if criteria.visit_detail_start_date:
@@ -1047,23 +1072,23 @@ class QueryBuilder:
             query = self._apply_numeric_filter(query, age_expr, criteria.age)
 
         # 2. Gender (List of Concepts) -> person.gender_concept_id
-        if criteria.gender:
-            concept_ids = [c.concept_id for c in criteria.gender]
-            query = query.where(person.c.gender_concept_id.in_(concept_ids))
+        query = self._apply_concept_list_filter(
+            query, person.c.gender_concept_id, criteria.gender
+        )
 
         # TODO: Implement gender_cs (ConceptSetSelection)
 
         # 3. Race (List of Concepts) -> person.race_concept_id
-        if criteria.race:
-            concept_ids = [c.concept_id for c in criteria.race]
-            query = query.where(person.c.race_concept_id.in_(concept_ids))
+        query = self._apply_concept_list_filter(
+            query, person.c.race_concept_id, criteria.race
+        )
 
         # TODO: Implement race_cs (ConceptSetSelection)
 
         # 4. Ethnicity (List of Concepts) -> person.ethnicity_concept_id
-        if criteria.ethnicity:
-            concept_ids = [c.concept_id for c in criteria.ethnicity]
-            query = query.where(person.c.ethnicity_concept_id.in_(concept_ids))
+        query = self._apply_concept_list_filter(
+            query, person.c.ethnicity_concept_id, criteria.ethnicity
+        )
 
         # TODO: Implement ethnicity_cs (ConceptSetSelection)
 
