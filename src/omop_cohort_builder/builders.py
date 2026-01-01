@@ -6,6 +6,7 @@ from sqlalchemy import select, Select
 
 from omop_cohort_builder.domain import (
     ConditionOccurrence,
+    ConditionEra,
     DrugExposure,
     VisitOccurrence,
     ProcedureOccurrence,
@@ -18,6 +19,7 @@ from omop_cohort_builder.domain import (
 )
 from omop_cohort_builder.schema import (
     condition_occurrence,
+    condition_era,
     drug_exposure,
     visit_occurrence,
     procedure_occurrence,
@@ -76,6 +78,51 @@ class QueryBuilder:
             query = query.where(
                 condition_occurrence.c.condition_status_concept_id.in_(concept_ids)
             )
+
+        return query
+
+    @build_criteria.register
+    def _build_condition_era(self, criteria: ConditionEra) -> Select:
+        """
+        Builds a SQL query for ConditionEra criteria.
+        """
+        query = select(condition_era)
+
+        # 1. Era Start Date -> condition_era_start_date
+        if criteria.era_start_date:
+            query = self._apply_date_filter(
+                query,
+                condition_era.c.condition_era_start_date,
+                criteria.era_start_date,
+            )
+
+        # 2. Era End Date -> condition_era_end_date
+        if criteria.era_end_date:
+            query = self._apply_date_filter(
+                query,
+                condition_era.c.condition_era_end_date,
+                criteria.era_end_date,
+            )
+
+        # 3. Occurrence Count -> condition_occurrence_count
+        if criteria.occurrence_count:
+            query = self._apply_numeric_filter(
+                query,
+                condition_era.c.condition_occurrence_count,
+                criteria.occurrence_count,
+            )
+
+        # 4. Era Length -> (condition_era_end_date - condition_era_start_date)
+        if criteria.era_length:
+            length_expr = (
+                condition_era.c.condition_era_end_date
+                - condition_era.c.condition_era_start_date
+            )
+            query = self._apply_numeric_filter(query, length_expr, criteria.era_length)
+
+        # TODO: Implement codeset_id (requires ConceptSet resolution)
+
+        # TODO: Implement age_at_start, age_at_end, gender (requires Person table join)
 
         return query
 
