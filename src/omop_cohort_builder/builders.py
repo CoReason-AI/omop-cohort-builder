@@ -13,6 +13,7 @@ from omop_cohort_builder.domain import (
     Observation,
     DeviceExposure,
     Death,
+    Specimen,
     Criteria,
 )
 from omop_cohort_builder.schema import (
@@ -24,6 +25,7 @@ from omop_cohort_builder.schema import (
     observation,
     device_exposure,
     death,
+    specimen,
 )
 
 
@@ -73,6 +75,53 @@ class QueryBuilder:
             concept_ids = [c.concept_id for c in criteria.condition_status]
             query = query.where(
                 condition_occurrence.c.condition_status_concept_id.in_(concept_ids)
+            )
+
+        return query
+
+    @build_criteria.register
+    def _build_specimen(self, criteria: Specimen) -> Select:
+        """
+        Builds a SQL query for Specimen criteria.
+        """
+        query = select(specimen)
+
+        # 1. Specimen Type (List of Concepts) -> specimen_type_concept_id IN (...)
+        if criteria.specimen_type:
+            concept_ids = [c.concept_id for c in criteria.specimen_type]
+            query = query.where(specimen.c.specimen_type_concept_id.in_(concept_ids))
+
+        # 2. Quantity (NumericRange)
+        if criteria.quantity:
+            query = self._apply_numeric_filter(
+                query, specimen.c.quantity, criteria.quantity
+            )
+
+        # 3. Unit (List of Concepts) -> unit_concept_id IN (...)
+        if criteria.unit:
+            concept_ids = [c.concept_id for c in criteria.unit]
+            query = query.where(specimen.c.unit_concept_id.in_(concept_ids))
+
+        # 4. Anatomic Site (List of Concepts) -> anatomic_site_concept_id IN (...)
+        if criteria.anatomic_site:
+            concept_ids = [c.concept_id for c in criteria.anatomic_site]
+            query = query.where(specimen.c.anatomic_site_concept_id.in_(concept_ids))
+
+        # 5. Disease Status (List of Concepts) -> disease_status_concept_id IN (...)
+        if criteria.disease_status:
+            concept_ids = [c.concept_id for c in criteria.disease_status]
+            query = query.where(specimen.c.disease_status_concept_id.in_(concept_ids))
+
+        # 6. Source ID (TextFilter) -> specimen_source_id LIKE ...
+        if criteria.source_id:
+            query = self._apply_text_filter(
+                query, specimen.c.specimen_source_id, criteria.source_id
+            )
+
+        # 7. Occurrence Start Date -> specimen_date
+        if criteria.occurrence_start_date:
+            query = self._apply_date_filter(
+                query, specimen.c.specimen_date, criteria.occurrence_start_date
             )
 
         return query
