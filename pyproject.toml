@@ -24,7 +24,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
-addopts = "--cov=src --cov-report=term-missing"
+addopts = "--cov=omop_cohort_builder --cov-report=term-missing"
 testpaths = ["tests"]
 
 [tool.coverage.run]
