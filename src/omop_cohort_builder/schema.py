@@ -313,6 +313,19 @@ location = Table(
     Column("country_source_value", String(80), nullable=True),
     Column("latitude", Numeric, nullable=True),
     Column("longitude", Numeric, nullable=True),
+    Column("region_concept_id", Integer, nullable=True),  # Added for OHDSI 5.4 parity
+)
+
+location_history = Table(
+    "location_history",
+    CDM_SCHEMA,
+    Column("location_history_id", Integer, primary_key=True),
+    Column("location_id", Integer, nullable=False),
+    Column("relationship_type_concept_id", Integer, nullable=False),
+    Column("domain_id", String(50), nullable=False),
+    Column("entity_id", Integer, nullable=False),
+    Column("start_date", Date, nullable=False),
+    Column("end_date", Date, nullable=True),
 )
 
 care_site = Table(
@@ -375,7 +388,7 @@ cost = Table(
     Column("total_cost", Numeric, nullable=True),
     Column("total_paid", Numeric, nullable=True),
     Column("paid_by_payer", Numeric, nullable=True),
-    Column("paid_by_patient", Numeric, nullable=True),
+    Column("paid_by_patient", Numeric, nullable=True),  # Re-added
     Column("paid_patient_copay", Numeric, nullable=True),
     Column("paid_patient_coinsurance", Numeric, nullable=True),
     Column("paid_patient_deductible", Numeric, nullable=True),
