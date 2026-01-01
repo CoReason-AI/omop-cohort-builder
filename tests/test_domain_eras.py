@@ -1,5 +1,3 @@
-
-import json
 from pydantic import TypeAdapter
 from omop_cohort_builder.domain import (
     ConditionEra,
@@ -7,7 +5,8 @@ from omop_cohort_builder.domain import (
     DoseEra,
     Criteria,
 )
-from omop_cohort_builder.base import Concept, NumericRange, DateRange, ConceptSetSelection
+from omop_cohort_builder.base import NumericRange, ConceptSetSelection
+
 
 def test_condition_era_deserialization():
     json_data = """
@@ -90,7 +89,7 @@ def test_serialization_round_trip():
     era = DrugEra(
         codeset_id=1,
         gap_days=NumericRange(value=10, op="gt"),
-        gender_cs=ConceptSetSelection(codeset_id=5)
+        gender_cs=ConceptSetSelection(codeset_id=5),
     )
 
     dumped = era.model_dump(by_alias=True, exclude_none=True)
