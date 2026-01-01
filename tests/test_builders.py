@@ -9,7 +9,7 @@ from omop_cohort_builder.domain import (
     DrugExposure,
     VisitOccurrence,
     ProcedureOccurrence,
-    PayerPlanPeriod,
+    LocationRegion,
 )
 from omop_cohort_builder.base import TextFilter, NumericRange, Concept, DateRange
 
@@ -98,8 +98,8 @@ def test_condition_occurrence_multiple_filters():
 
 def test_unimplemented_criteria_raises_error():
     """Test that unimplemented criteria types raise NotImplementedError."""
-    # Using PayerPlanPeriod as a dummy unimplemented criteria
-    criteria = PayerPlanPeriod()
+    # Using LocationRegion as a dummy unimplemented criteria
+    criteria = LocationRegion()
     builder = QueryBuilder()
 
     with pytest.raises(NotImplementedError) as exc:
