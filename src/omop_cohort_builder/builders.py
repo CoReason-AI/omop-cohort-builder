@@ -8,6 +8,7 @@ from omop_cohort_builder.domain import (
     ConditionOccurrence,
     ConditionEra,
     DrugEra,
+    DoseEra,
     DrugExposure,
     VisitOccurrence,
     ProcedureOccurrence,
@@ -23,6 +24,7 @@ from omop_cohort_builder.schema import (
     condition_occurrence,
     condition_era,
     drug_era,
+    dose_era,
     drug_exposure,
     visit_occurrence,
     procedure_occurrence,
@@ -175,6 +177,53 @@ class QueryBuilder:
             query = self._apply_numeric_filter(query, length_expr, criteria.era_length)
 
         # TODO: Implement codeset_id (requires ConceptSet resolution)
+        # TODO: Implement age_at_start, age_at_end, gender (requires Person table join)
+
+        return query
+
+    @build_criteria.register
+    def _build_dose_era(self, criteria: DoseEra) -> Select:
+        """
+        Builds a SQL query for DoseEra criteria.
+        """
+        query = select(dose_era)
+
+        # 1. Era Start Date -> dose_era_start_date
+        if criteria.era_start_date:
+            query = self._apply_date_filter(
+                query,
+                dose_era.c.dose_era_start_date,
+                criteria.era_start_date,
+            )
+
+        # 2. Era End Date -> dose_era_end_date
+        if criteria.era_end_date:
+            query = self._apply_date_filter(
+                query,
+                dose_era.c.dose_era_end_date,
+                criteria.era_end_date,
+            )
+
+        # 3. Dose Value -> dose_value
+        if criteria.dose_value:
+            query = self._apply_numeric_filter(
+                query,
+                dose_era.c.dose_value,
+                criteria.dose_value,
+            )
+
+        # 4. Era Length -> (dose_era_end_date - dose_era_start_date)
+        if criteria.era_length:
+            length_expr = dose_era.c.dose_era_end_date - dose_era.c.dose_era_start_date
+            query = self._apply_numeric_filter(query, length_expr, criteria.era_length)
+
+        # 5. Unit (List of Concepts) -> unit_concept_id IN (...)
+        if criteria.unit:
+            concept_ids = [c.concept_id for c in criteria.unit]
+            query = query.where(dose_era.c.unit_concept_id.in_(concept_ids))
+
+        # TODO: Implement codeset_id (requires ConceptSet resolution)
+        # TODO: Implement unit_cs (ConceptSetSelection)
         # TODO: Implement age_at_start, age_at_end, gender (requires Person table join)
 
         return query
