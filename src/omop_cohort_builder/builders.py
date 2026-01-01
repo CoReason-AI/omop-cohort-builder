@@ -18,6 +18,7 @@ from omop_cohort_builder.domain import (
     Death,
     Specimen,
     VisitDetail,
+    ObservationPeriod,
     Criteria,
 )
 from omop_cohort_builder.schema import (
@@ -34,6 +35,7 @@ from omop_cohort_builder.schema import (
     death,
     specimen,
     visit_detail,
+    observation_period,
 )
 
 
@@ -729,6 +731,52 @@ class QueryBuilder:
 
         # TODO: Implement visit_detail_type_cs (ConceptSetSelection)
         # TODO: Implement age, gender_cs, provider_specialty_cs, place_of_service_cs (requires joins)
+
+        return query
+
+    @build_criteria.register
+    def _build_observation_period(self, criteria: ObservationPeriod) -> Select:
+        """
+        Builds a SQL query for ObservationPeriod criteria.
+        """
+        query = select(observation_period)
+
+        # 1. Period Start Date -> observation_period_start_date
+        if criteria.period_start_date:
+            query = self._apply_date_filter(
+                query,
+                observation_period.c.observation_period_start_date,
+                criteria.period_start_date,
+            )
+
+        # 2. Period End Date -> observation_period_end_date
+        if criteria.period_end_date:
+            query = self._apply_date_filter(
+                query,
+                observation_period.c.observation_period_end_date,
+                criteria.period_end_date,
+            )
+
+        # 3. Period Type (List of Concepts) -> period_type_concept_id IN (...)
+        if criteria.period_type:
+            concept_ids = [c.concept_id for c in criteria.period_type]
+            query = query.where(
+                observation_period.c.period_type_concept_id.in_(concept_ids)
+            )
+
+        # 4. Period Length -> (observation_period_end_date - observation_period_start_date)
+        if criteria.period_length:
+            length_expr = (
+                observation_period.c.observation_period_end_date
+                - observation_period.c.observation_period_start_date
+            )
+            query = self._apply_numeric_filter(
+                query, length_expr, criteria.period_length
+            )
+
+        # TODO: Implement user_defined_period (requires complex logic)
+        # TODO: Implement period_type_cs (ConceptSetSelection)
+        # TODO: Implement age_at_start, age_at_end (requires Person join)
 
         return query
 
