@@ -12,6 +12,7 @@ from omop_cohort_builder.domain import (
     Measurement,
     Observation,
     DeviceExposure,
+    Death,
     Criteria,
 )
 from omop_cohort_builder.schema import (
@@ -22,6 +23,7 @@ from omop_cohort_builder.schema import (
     measurement,
     observation,
     device_exposure,
+    death,
 )
 
 
@@ -265,6 +267,32 @@ class QueryBuilder:
         if criteria.occurrence_start_date:
             query = self._apply_date_filter(
                 query, measurement.c.measurement_date, criteria.occurrence_start_date
+            )
+
+        return query
+
+    @build_criteria.register
+    def _build_death(self, criteria: Death) -> Select:
+        """
+        Builds a SQL query for Death criteria.
+        """
+        query = select(death)
+
+        # 1. Death Type (List of Concepts) -> death_type_concept_id IN (...)
+        if criteria.death_type:
+            concept_ids = [c.concept_id for c in criteria.death_type]
+            query = query.where(death.c.death_type_concept_id.in_(concept_ids))
+
+        # 2. Death Source Concept (int) -> cause_source_concept_id = ...
+        if criteria.death_source_concept is not None:
+            query = query.where(
+                death.c.cause_source_concept_id == criteria.death_source_concept
+            )
+
+        # 3. Occurrence Start Date -> death_date
+        if criteria.occurrence_start_date:
+            query = self._apply_date_filter(
+                query, death.c.death_date, criteria.occurrence_start_date
             )
 
         return query
