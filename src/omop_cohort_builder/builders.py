@@ -42,6 +42,7 @@ from omop_cohort_builder.schema import (
     payer_plan_period,
     location_history,
     location,
+    person,
 )
 
 
@@ -664,6 +665,30 @@ class QueryBuilder:
         # 11. Dose Unit (List of Concepts)
         if criteria.dose_unit:
             pass
+
+        # 12. Age (NumericRange) -> (Year(drug_exposure_start_date) - person.year_of_birth)
+        # 13. Gender (List of Concepts) -> person.gender_concept_id
+        if criteria.age or criteria.gender:
+            # We need to join with the PERSON table
+            # drug_exposure.person_id == person.person_id
+            query = query.join(
+                person, drug_exposure.c.person_id == person.c.person_id
+            )
+
+            if criteria.age:
+                from sqlalchemy import extract
+
+                # Age calculation: year(start_date) - year_of_birth
+                # Note: This is a simplified "Age in Years" calculation common in OMOP/OHDSI
+                age_expr = (
+                    extract("year", drug_exposure.c.drug_exposure_start_date)
+                    - person.c.year_of_birth
+                )
+                query = self._apply_numeric_filter(query, age_expr, criteria.age)
+
+            if criteria.gender:
+                concept_ids = [c.concept_id for c in criteria.gender]
+                query = query.where(person.c.gender_concept_id.in_(concept_ids))
 
         return query
 
