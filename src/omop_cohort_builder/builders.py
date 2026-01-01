@@ -99,6 +99,14 @@ class QueryBuilder:
                 condition_occurrence.c.condition_type_concept_id.in_(concept_ids)
             )
 
+        # 1b. Condition Type (ConceptSetSelection)
+        if criteria.condition_type_cs:
+            query = self._apply_concept_set_selection(
+                query,
+                condition_occurrence.c.condition_type_concept_id,
+                criteria.condition_type_cs,
+            )
+
         # 2. Condition Source Concept -> condition_source_concept_id = ...
         if criteria.condition_source_concept is not None:
             query = query.where(
@@ -117,6 +125,14 @@ class QueryBuilder:
             concept_ids = [c.concept_id for c in criteria.condition_status]
             query = query.where(
                 condition_occurrence.c.condition_status_concept_id.in_(concept_ids)
+            )
+
+        # 4b. Condition Status (ConceptSetSelection)
+        if criteria.condition_status_cs:
+            query = self._apply_concept_set_selection(
+                query,
+                condition_occurrence.c.condition_status_concept_id,
+                criteria.condition_status_cs,
             )
 
         return query
@@ -1141,3 +1157,32 @@ class QueryBuilder:
         else:
             # Default to like, assuming the user might have provided wildcards or its a raw like op
             return query.where(column.like(text))
+
+    def _apply_concept_set_selection(self, query, column, selection):
+        """
+        Helper to apply ConceptSetSelection filters (inclusion or exclusion).
+
+        Args:
+            query: The current SQLAlchemy Select query.
+            column: The SQLAlchemy Column object to filter on.
+            selection: The ConceptSetSelection object containing codeset_id and is_exclusion.
+        """
+        if selection is None or selection.codeset_id is None:
+            return query
+
+        concept_ids = self._resolve_codeset(selection.codeset_id)
+
+        if selection.is_exclusion:
+            # Exclusion: column NOT IN (...)
+            if not concept_ids:
+                # Exclude nothing -> Include everything (no-op)
+                return query
+            return query.where(column.notin_(concept_ids))
+        else:
+            # Inclusion: column IN (...)
+            if not concept_ids:
+                # Include nothing -> Exclude everything (1 != 1)
+                from sqlalchemy import literal
+
+                return query.where(literal(False))
+            return query.where(column.in_(concept_ids))
