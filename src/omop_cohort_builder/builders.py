@@ -22,6 +22,7 @@ from omop_cohort_builder.domain import (
     ObservationPeriod,
     PayerPlanPeriod,
     LocationRegion,
+    DemographicCriteria,
     Criteria,
 )
 from omop_cohort_builder.schema import (
@@ -1001,6 +1002,70 @@ class QueryBuilder:
             concept_ids = self._resolve_codeset(criteria.codeset_id)
             # Filter location.region_concept_id
             query = query.where(location.c.region_concept_id.in_(concept_ids))
+
+        return query
+
+    @build_criteria.register
+    def _build_demographic_criteria(self, criteria: DemographicCriteria) -> Select:
+        """
+        Builds a SQL query for DemographicCriteria.
+
+        Logic:
+        1. Query OBSERVATION_PERIOD table (implied event stream).
+        2. Join with PERSON table to filter demographics.
+        3. Filter by Age, Gender, Race, Ethnicity.
+        4. Filter by Observation Period Start/End dates.
+        """
+        query = select(observation_period).join(
+            person, observation_period.c.person_id == person.c.person_id
+        )
+
+        # 1. Age (NumericRange) -> (Year(observation_period_start_date) - person.year_of_birth)
+        if criteria.age:
+            from sqlalchemy import extract
+
+            age_expr = (
+                extract("year", observation_period.c.observation_period_start_date)
+                - person.c.year_of_birth
+            )
+            query = self._apply_numeric_filter(query, age_expr, criteria.age)
+
+        # 2. Gender (List of Concepts) -> person.gender_concept_id
+        if criteria.gender:
+            concept_ids = [c.concept_id for c in criteria.gender]
+            query = query.where(person.c.gender_concept_id.in_(concept_ids))
+
+        # TODO: Implement gender_cs (ConceptSetSelection)
+
+        # 3. Race (List of Concepts) -> person.race_concept_id
+        if criteria.race:
+            concept_ids = [c.concept_id for c in criteria.race]
+            query = query.where(person.c.race_concept_id.in_(concept_ids))
+
+        # TODO: Implement race_cs (ConceptSetSelection)
+
+        # 4. Ethnicity (List of Concepts) -> person.ethnicity_concept_id
+        if criteria.ethnicity:
+            concept_ids = [c.concept_id for c in criteria.ethnicity]
+            query = query.where(person.c.ethnicity_concept_id.in_(concept_ids))
+
+        # TODO: Implement ethnicity_cs (ConceptSetSelection)
+
+        # 5. Occurrence Start Date -> observation_period_start_date
+        if criteria.occurrence_start_date:
+            query = self._apply_date_filter(
+                query,
+                observation_period.c.observation_period_start_date,
+                criteria.occurrence_start_date,
+            )
+
+        # 6. Occurrence End Date -> observation_period_end_date
+        if criteria.occurrence_end_date:
+            query = self._apply_date_filter(
+                query,
+                observation_period.c.observation_period_end_date,
+                criteria.occurrence_end_date,
+            )
 
         return query
 
