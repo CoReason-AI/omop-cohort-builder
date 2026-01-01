@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import singledispatchmethod
+from typing import Dict, List
 
 from sqlalchemy import select, Select
 
@@ -49,6 +50,21 @@ class QueryBuilder:
     Builds SQL queries from Circe criteria models.
     """
 
+    def __init__(self, concept_set_map: Dict[int, List[int]] | None = None):
+        """
+        Args:
+            concept_set_map: A dictionary mapping codeset IDs to lists of concept IDs.
+                             Used to resolve 'codeset_id' fields in criteria.
+        """
+        self.concept_set_map = concept_set_map or {}
+
+    def _resolve_codeset(self, codeset_id: int) -> List[int]:
+        """
+        Resolves a codeset ID to a list of concept IDs.
+        If the codeset ID is not found, returns an empty list.
+        """
+        return self.concept_set_map.get(codeset_id, [])
+
     @singledispatchmethod
     def build_criteria(self, criteria: Criteria) -> Select:
         """
@@ -64,6 +80,15 @@ class QueryBuilder:
         Builds a SQL query for ConditionOccurrence criteria.
         """
         query = select(condition_occurrence)
+
+        # 0. Codeset ID -> condition_concept_id IN (...)
+        if criteria.codeset_id is not None:
+            concept_ids = self._resolve_codeset(criteria.codeset_id)
+            # If concept_ids is empty, .in_([]) will typically render as false (e.g., IN (NULL) or 1!=1)
+            # which is correct behavior (matches nothing).
+            query = query.where(
+                condition_occurrence.c.condition_concept_id.in_(concept_ids)
+            )
 
         # 1. Condition Type (List of Concepts) -> condition_type_concept_id IN (...)
         if criteria.condition_type:
@@ -101,6 +126,11 @@ class QueryBuilder:
         """
         query = select(condition_era)
 
+        # 0. Codeset ID -> condition_concept_id IN (...)
+        if criteria.codeset_id is not None:
+            concept_ids = self._resolve_codeset(criteria.codeset_id)
+            query = query.where(condition_era.c.condition_concept_id.in_(concept_ids))
+
         # 1. Era Start Date -> condition_era_start_date
         if criteria.era_start_date:
             query = self._apply_date_filter(
@@ -133,8 +163,6 @@ class QueryBuilder:
             )
             query = self._apply_numeric_filter(query, length_expr, criteria.era_length)
 
-        # TODO: Implement codeset_id (requires ConceptSet resolution)
-
         # TODO: Implement age_at_start, age_at_end, gender (requires Person table join)
 
         return query
@@ -145,6 +173,11 @@ class QueryBuilder:
         Builds a SQL query for DrugEra criteria.
         """
         query = select(drug_era)
+
+        # 0. Codeset ID -> drug_concept_id IN (...)
+        if criteria.codeset_id is not None:
+            concept_ids = self._resolve_codeset(criteria.codeset_id)
+            query = query.where(drug_era.c.drug_concept_id.in_(concept_ids))
 
         # 1. Era Start Date -> drug_era_start_date
         if criteria.era_start_date:
@@ -183,7 +216,6 @@ class QueryBuilder:
             length_expr = drug_era.c.drug_era_end_date - drug_era.c.drug_era_start_date
             query = self._apply_numeric_filter(query, length_expr, criteria.era_length)
 
-        # TODO: Implement codeset_id (requires ConceptSet resolution)
         # TODO: Implement age_at_start, age_at_end, gender (requires Person table join)
 
         return query
@@ -194,6 +226,11 @@ class QueryBuilder:
         Builds a SQL query for DoseEra criteria.
         """
         query = select(dose_era)
+
+        # 0. Codeset ID -> drug_concept_id IN (...)
+        if criteria.codeset_id is not None:
+            concept_ids = self._resolve_codeset(criteria.codeset_id)
+            query = query.where(dose_era.c.drug_concept_id.in_(concept_ids))
 
         # 1. Era Start Date -> dose_era_start_date
         if criteria.era_start_date:
@@ -229,7 +266,6 @@ class QueryBuilder:
             concept_ids = [c.concept_id for c in criteria.unit]
             query = query.where(dose_era.c.unit_concept_id.in_(concept_ids))
 
-        # TODO: Implement codeset_id (requires ConceptSet resolution)
         # TODO: Implement unit_cs (ConceptSetSelection)
         # TODO: Implement age_at_start, age_at_end, gender (requires Person table join)
 
@@ -241,6 +277,11 @@ class QueryBuilder:
         Builds a SQL query for Specimen criteria.
         """
         query = select(specimen)
+
+        # 0. Codeset ID -> specimen_concept_id IN (...)
+        if criteria.codeset_id is not None:
+            concept_ids = self._resolve_codeset(criteria.codeset_id)
+            query = query.where(specimen.c.specimen_concept_id.in_(concept_ids))
 
         # 1. Specimen Type (List of Concepts) -> specimen_type_concept_id IN (...)
         if criteria.specimen_type:
@@ -288,6 +329,11 @@ class QueryBuilder:
         Builds a SQL query for DeviceExposure criteria.
         """
         query = select(device_exposure)
+
+        # 0. Codeset ID -> device_concept_id IN (...)
+        if criteria.codeset_id is not None:
+            concept_ids = self._resolve_codeset(criteria.codeset_id)
+            query = query.where(device_exposure.c.device_concept_id.in_(concept_ids))
 
         # 1. Device Type (List of Concepts) -> device_type_concept_id IN (...)
         if criteria.device_type:
@@ -339,6 +385,11 @@ class QueryBuilder:
         Builds a SQL query for Observation criteria.
         """
         query = select(observation)
+
+        # 0. Codeset ID -> observation_concept_id IN (...)
+        if criteria.codeset_id is not None:
+            concept_ids = self._resolve_codeset(criteria.codeset_id)
+            query = query.where(observation.c.observation_concept_id.in_(concept_ids))
 
         # 1. Observation Type (List of Concepts)
         if criteria.observation_type:
@@ -395,6 +446,11 @@ class QueryBuilder:
         Builds a SQL query for Measurement criteria.
         """
         query = select(measurement)
+
+        # 0. Codeset ID -> measurement_concept_id IN (...)
+        if criteria.codeset_id is not None:
+            concept_ids = self._resolve_codeset(criteria.codeset_id)
+            query = query.where(measurement.c.measurement_concept_id.in_(concept_ids))
 
         # 1. Measurement Type (List of Concepts) -> measurement_type_concept_id IN (...)
         if criteria.measurement_type:
@@ -496,6 +552,11 @@ class QueryBuilder:
         """
         query = select(death)
 
+        # 0. Codeset ID -> cause_concept_id IN (...)
+        if criteria.codeset_id is not None:
+            concept_ids = self._resolve_codeset(criteria.codeset_id)
+            query = query.where(death.c.cause_concept_id.in_(concept_ids))
+
         # 1. Death Type (List of Concepts) -> death_type_concept_id IN (...)
         if criteria.death_type:
             concept_ids = [c.concept_id for c in criteria.death_type]
@@ -521,6 +582,11 @@ class QueryBuilder:
         Builds a SQL query for DrugExposure criteria.
         """
         query = select(drug_exposure)
+
+        # 0. Codeset ID -> drug_concept_id IN (...)
+        if criteria.codeset_id is not None:
+            concept_ids = self._resolve_codeset(criteria.codeset_id)
+            query = query.where(drug_exposure.c.drug_concept_id.in_(concept_ids))
 
         # 1. Occurrence Start Date -> drug_exposure_start_date
         if criteria.occurrence_start_date:
@@ -596,9 +662,6 @@ class QueryBuilder:
             )
 
         # 11. Dose Unit (List of Concepts)
-        # TODO: Implement dose_unit.
-        # This requires joining to DRUG_STRENGTH or DOSE_ERA which is not yet supported in this atomic unit.
-        # The drug_exposure table in standard OMOP CDM does not have dose_unit_concept_id.
         if criteria.dose_unit:
             pass
 
@@ -610,6 +673,11 @@ class QueryBuilder:
         Builds a SQL query for VisitOccurrence criteria.
         """
         query = select(visit_occurrence)
+
+        # 0. Codeset ID -> visit_concept_id IN (...)
+        if criteria.codeset_id is not None:
+            concept_ids = self._resolve_codeset(criteria.codeset_id)
+            query = query.where(visit_occurrence.c.visit_concept_id.in_(concept_ids))
 
         # 1. Visit Type (List of Concepts) -> visit_type_concept_id IN (...)
         if criteria.visit_type:
@@ -657,6 +725,13 @@ class QueryBuilder:
         """
         query = select(procedure_occurrence)
 
+        # 0. Codeset ID -> procedure_concept_id IN (...)
+        if criteria.codeset_id is not None:
+            concept_ids = self._resolve_codeset(criteria.codeset_id)
+            query = query.where(
+                procedure_occurrence.c.procedure_concept_id.in_(concept_ids)
+            )
+
         # 1. Procedure Type (List of Concepts) -> procedure_type_concept_id IN (...)
         if criteria.procedure_type:
             concept_ids = [c.concept_id for c in criteria.procedure_type]
@@ -700,6 +775,13 @@ class QueryBuilder:
         Builds a SQL query for VisitDetail criteria.
         """
         query = select(visit_detail)
+
+        # 0. Codeset ID -> visit_detail_concept_id IN (...)
+        if criteria.codeset_id is not None:
+            concept_ids = self._resolve_codeset(criteria.codeset_id)
+            query = query.where(
+                visit_detail.c.visit_detail_concept_id.in_(concept_ids)
+            )
 
         # 1. Visit Detail Source Concept -> visit_detail_source_concept_id = ...
         if criteria.visit_detail_source_concept is not None:
@@ -745,6 +827,9 @@ class QueryBuilder:
         Builds a SQL query for ObservationPeriod criteria.
         """
         query = select(observation_period)
+
+        # ObservationPeriod typically doesn't use codeset_id for the primary table filtering like others.
+        # It's about time periods.
 
         # 1. Period Start Date -> observation_period_start_date
         if criteria.period_start_date:
@@ -890,12 +975,11 @@ class QueryBuilder:
             )
 
         # 3. Codeset ID (Region Concept)
-        # Note: In Circe, this usually implies filtering location.region_concept_id
-        # against the ConceptSet resolved from codeset_id.
-        # Since we don't have ConceptSet resolution here yet, we leave a TODO.
-        # The column to filter against is likely location.region_concept_id (OMOP 5.4+).
-        if criteria.codeset_id:
-            pass  # TODO: Implement codeset filtering against location.region_concept_id
+        if criteria.codeset_id is not None:
+            # Resolve codeset_id to concept_ids
+            concept_ids = self._resolve_codeset(criteria.codeset_id)
+            # Filter location.region_concept_id
+            query = query.where(location.c.region_concept_id.in_(concept_ids))
 
         return query
 
