@@ -671,9 +671,7 @@ class QueryBuilder:
         if criteria.age or criteria.gender:
             # We need to join with the PERSON table
             # drug_exposure.person_id == person.person_id
-            query = query.join(
-                person, drug_exposure.c.person_id == person.c.person_id
-            )
+            query = query.join(person, drug_exposure.c.person_id == person.c.person_id)
 
             if criteria.age:
                 from sqlalchemy import extract

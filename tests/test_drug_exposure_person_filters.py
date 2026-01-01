@@ -60,10 +60,7 @@ def test_drug_exposure_with_age_and_gender():
         VOCABULARY_ID="Gender",
         CONCEPT_CLASS_ID="Gender",
     )
-    criteria = DrugExposure(
-        age=NumericRange(value=65, op="gte"),
-        gender=[c1]
-    )
+    criteria = DrugExposure(age=NumericRange(value=65, op="gte"), gender=[c1])
     builder = QueryBuilder()
     query = builder.build_criteria(criteria)
     sql = compile_query(query)
