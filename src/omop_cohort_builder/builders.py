@@ -20,6 +20,7 @@ from omop_cohort_builder.domain import (
     VisitDetail,
     ObservationPeriod,
     PayerPlanPeriod,
+    LocationRegion,
     Criteria,
 )
 from omop_cohort_builder.schema import (
@@ -38,6 +39,8 @@ from omop_cohort_builder.schema import (
     visit_detail,
     observation_period,
     payer_plan_period,
+    location_history,
+    location,
 )
 
 
@@ -848,6 +851,51 @@ class QueryBuilder:
         # TODO: Implement payer_concept, plan_concept, sponsor_concept, stop_reason_concept
         # (These columns are not standard in OMOP CDM v5.4 payer_plan_period table,
         # but exist in the Criteria model.)
+
+        return query
+
+    @build_criteria.register
+    def _build_location_region(self, criteria: LocationRegion) -> Select:
+        """
+        Builds a SQL query for LocationRegion criteria.
+
+        Logic:
+        1. Query LOCATION_HISTORY table.
+        2. Join with LOCATION table on location_id.
+        3. Filter by start_date and end_date (from GeoCriteria parent).
+        4. Filter by codeset_id (implicit filtering of region_concept_id).
+        """
+        # Join location_history -> location
+        query = select(location_history).join(
+            location, location_history.c.location_id == location.c.location_id
+        )
+
+        # Ensure we only select PERSON history records
+        query = query.where(location_history.c.domain_id == "PERSON")
+
+        # 1. Start Date -> location_history.start_date
+        if criteria.start_date:
+            query = self._apply_date_filter(
+                query,
+                location_history.c.start_date,
+                criteria.start_date,
+            )
+
+        # 2. End Date -> location_history.end_date
+        if criteria.end_date:
+            query = self._apply_date_filter(
+                query,
+                location_history.c.end_date,
+                criteria.end_date,
+            )
+
+        # 3. Codeset ID (Region Concept)
+        # Note: In Circe, this usually implies filtering location.region_concept_id
+        # against the ConceptSet resolved from codeset_id.
+        # Since we don't have ConceptSet resolution here yet, we leave a TODO.
+        # The column to filter against is likely location.region_concept_id (OMOP 5.4+).
+        if criteria.codeset_id:
+            pass  # TODO: Implement codeset filtering against location.region_concept_id
 
         return query
 
