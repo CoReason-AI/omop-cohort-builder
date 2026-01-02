@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from functools import singledispatchmethod
-from typing import Dict, List
+from functools import singledispatchmethod, singledispatch
+from typing import Dict, List, Any
 
-from sqlalchemy import select, Select
+from sqlalchemy import select, Select, ColumnElement
 
 from omop_cohort_builder.domain import (
     ConditionOccurrence,
@@ -25,6 +25,9 @@ from omop_cohort_builder.domain import (
     DemographicCriteria,
     Criteria,
     PrimaryCriteria,
+    CorelatedCriteria,
+    Window,
+    Occurrence,
 )
 from omop_cohort_builder.schema import (
     condition_occurrence,
@@ -47,6 +50,33 @@ from omop_cohort_builder.schema import (
     person,
     provider,
 )
+
+
+@singledispatch
+def _get_criteria_columns_dispatch(criteria: Criteria):
+    """
+    Returns the (start_column, end_column) for the given criteria type.
+    Used for column normalization in primary criteria.
+    """
+    raise NotImplementedError(  # pragma: no cover
+        f"Column mapping not implemented for type: {type(criteria)}"
+    )
+
+
+@_get_criteria_columns_dispatch.register
+def _(criteria: ConditionOccurrence):
+    return (
+        condition_occurrence.c.condition_start_date,
+        condition_occurrence.c.condition_end_date,
+    )
+
+
+@_get_criteria_columns_dispatch.register
+def _(criteria: DrugExposure):
+    return (
+        drug_exposure.c.drug_exposure_start_date,
+        drug_exposure.c.drug_exposure_end_date,
+    )
 
 
 class QueryBuilder:
@@ -151,37 +181,13 @@ class QueryBuilder:
 
         return query
 
-    @singledispatchmethod
-    def _get_criteria_columns(self, criteria: Criteria):
-        """
-        Returns the (start_column, end_column) for the given criteria type.
-        Used for column normalization in primary criteria.
-        """
-        raise NotImplementedError(
-            f"Column mapping not implemented for type: {type(criteria)}"
-        )
-
-    @_get_criteria_columns.register
-    def _get_columns_condition_occurrence(self, criteria: ConditionOccurrence):
-        return (
-            condition_occurrence.c.condition_start_date,
-            condition_occurrence.c.condition_end_date,
-        )
-
-    @_get_criteria_columns.register
-    def _get_columns_drug_exposure(self, criteria: DrugExposure):
-        return (
-            drug_exposure.c.drug_exposure_start_date,
-            drug_exposure.c.drug_exposure_end_date,
-        )
-
     def _normalize_criteria_query(self, query: Select, criteria: Criteria) -> Select:
         """
         Wraps a criteria query to return standard columns: person_id, start_date, end_date.
         """
         try:
             # Use single dispatch to get table columns
-            start_col_def, end_col_def = self._get_criteria_columns(criteria)
+            start_col_def, end_col_def = _get_criteria_columns_dispatch(criteria)
         except NotImplementedError:
             # Should not happen for supported types; raise clearly
             raise NotImplementedError(
@@ -209,6 +215,174 @@ class QueryBuilder:
         ]
 
         return select(*selection)
+
+    def _apply_window(
+        self,
+        query: Select,
+        event_alias: Any,
+        window: Window | None,
+        criteria_start_col: Any,
+    ) -> Select:
+        """
+        Applies window logic to filter the criteria query relative to an event alias.
+
+        Args:
+            query: The criteria query (e.g., Select from ConditionOccurrence).
+            event_alias: The SQLAlchemy Alias for the primary event table.
+            window: The Window definition.
+            criteria_start_col: The column in the criteria query representing the event start date.
+        """
+        if not window:
+            return query
+
+        start_def = window.start
+        end_def = window.end
+
+        # Determine the base date from the primary event to calculate offsets against
+        # Default is event_alias.start_date
+        index_date_col = event_alias.c.start_date
+
+        # Check use_index_end for start/end endpoints?
+        # Actually Circe definition:
+        # Start Window: "Start Day" relative to Index Start/End
+        # End Window: "End Day" relative to Index Start/End
+
+        # Re-reading Window structure:
+        # It has `start: Endpoint` and `end: Endpoint`.
+        # Also `use_index_end` (boolean). If true, calculations are relative to Index END date.
+
+        if window.use_index_end:
+            index_date_col = event_alias.c.end_date
+
+        # Calculate Start Bound: IndexDate + (Start.Days * Start.Coeff)
+        # Note: days can be None (0)
+        start_days = (
+            start_def.days if start_def.days is not None else 0
+        ) * start_def.coeff
+
+        # Calculate End Bound: IndexDate + (End.Days * End.Coeff)
+        end_days = (end_def.days if end_def.days is not None else 0) * end_def.coeff
+
+        # Apply logic: Criteria Start Date BETWEEN (Index + StartOffset) AND (Index + EndOffset)
+        # Assuming `use_event_end` is false. If true, we check Criteria End Date.
+
+        target_col = criteria_start_col
+        # TODO: handle use_event_end to switch target_col to criteria end date
+        # Assuming we can look it up similarly to _get_criteria_columns logic if needed.
+
+        # SQLAlchemy expression
+        # We add integers to dates. Postgres supports this.
+        from sqlalchemy import literal
+
+        lower_bound = index_date_col + literal(start_days)
+        upper_bound = index_date_col + literal(end_days)
+
+        return query.where(target_col.between(lower_bound, upper_bound))
+
+    def _build_corelated_criteria_expression(
+        self, criteria: CorelatedCriteria, event_alias: Any
+    ) -> ColumnElement[bool]:
+        """
+        Builds a boolean expression representing a Correlated Criteria check.
+        e.g., (SELECT COUNT(*) FROM Condition WHERE ... AND Window) >= 1
+
+        Args:
+            criteria: The CorelatedCriteria object.
+            event_alias: The SQLAlchemy Alias for the primary event table (index events).
+
+        Returns:
+            A SQLAlchemy ColumnElement resolving to boolean (e.g., Exists or Comparison).
+        """
+        from sqlalchemy import func, literal
+
+        # 1. Build the base query for the criteria domain
+        base_query = self.build_criteria(criteria.criteria)
+
+        # 2. Identify the criteria columns for correlation (person_id, start_date)
+        # We need to know which columns to use.
+        start_col, end_col = _get_criteria_columns_dispatch(criteria.criteria)
+        # We assume build_criteria returns a query selecting from the main table,
+        # so we can access columns via the table objects directly or inspect the query.
+        # However, `build_criteria` returns `select(table)`.
+        # To strictly correlate, we need to ensure we reference the correct table instance.
+        # Since `build_criteria` returns a new Select object but using global Table objects,
+        # we can reference the global Table objects if they are used in the query.
+
+        # Ideally, we should alias the criteria query to avoid collision if it's the same table as event_alias.
+        criteria_alias = base_query.subquery().alias("criteria_events")
+
+        # If we use a subquery alias, we need to map the start_col/person_id to the alias columns.
+        # `_get_criteria_columns` returns columns from the global Table objects.
+        # We can find the corresponding columns in the alias by name.
+
+        criteria_person_col = criteria_alias.c.person_id
+        criteria_start_col = criteria_alias.c[start_col.name]
+
+        # 3. Correlate on Person ID
+        # SELECT 1 FROM criteria_events WHERE criteria_events.person_id = event_alias.person_id
+        correlation_filter = criteria_person_col == event_alias.c.person_id
+
+        # 4. Apply Window Filter
+        # Pass the subquery alias as the query to add WHERE clause?
+        # Select objects are immutable-ish, we create a new one.
+        # But we are dealing with an alias. We construct a select FROM the alias.
+
+        sub_select = (
+            select(literal(1)).select_from(criteria_alias).where(correlation_filter)
+        )
+
+        # Apply Window Logic
+        # We need to filter `criteria_alias` based on `event_alias`
+        sub_select = self._apply_window(
+            sub_select, event_alias, criteria.start_window, criteria_start_col
+        )
+
+        # 5. Apply Occurrence Count Logic
+        occurrence = criteria.occurrence
+
+        # Case: At Least N
+        if occurrence.type == Occurrence.AT_LEAST:
+            # Logic: (SELECT COUNT(*) ...) >= N
+            # Optimization: If N=1, use EXISTS
+            if occurrence.count == 1:
+                return sub_select.exists()
+            else:
+                # We need to select count(*)
+                count_query = (
+                    select(func.count())
+                    .select_from(criteria_alias)
+                    .where(correlation_filter)
+                )
+                count_query = self._apply_window(
+                    count_query, event_alias, criteria.start_window, criteria_start_col
+                )
+                return count_query.scalar_subquery() >= occurrence.count
+
+        # Case: Exactly N
+        elif occurrence.type == Occurrence.EXACTLY:
+            count_query = (
+                select(func.count())
+                .select_from(criteria_alias)
+                .where(correlation_filter)
+            )
+            count_query = self._apply_window(
+                count_query, event_alias, criteria.start_window, criteria_start_col
+            )
+            return count_query.scalar_subquery() == occurrence.count
+
+        # Case: At Most N
+        elif occurrence.type == Occurrence.AT_MOST:
+            count_query = (
+                select(func.count())
+                .select_from(criteria_alias)
+                .where(correlation_filter)
+            )
+            count_query = self._apply_window(
+                count_query, event_alias, criteria.start_window, criteria_start_col
+            )
+            return count_query.scalar_subquery() <= occurrence.count
+
+        raise NotImplementedError(f"Occurrence type {occurrence.type} not implemented")
 
     @singledispatchmethod
     def build_criteria(self, criteria: Criteria) -> Select:
