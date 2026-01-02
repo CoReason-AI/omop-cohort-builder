@@ -127,24 +127,26 @@ class QueryBuilder:
             #   FROM primary_events
             # ) WHERE rn = 1
 
-            order = subquery.c.start_date.asc() if limit_type == "First" else subquery.c.start_date.desc()
+            order = (
+                subquery.c.start_date.asc()
+                if limit_type == "First"
+                else subquery.c.start_date.desc()
+            )
 
-            rn_col = func.row_number().over(
-                partition_by=subquery.c.person_id,
-                order_by=order
-            ).label("rn")
+            rn_col = (
+                func.row_number()
+                .over(partition_by=subquery.c.person_id, order_by=order)
+                .label("rn")
+            )
 
             limit_subquery = select(
-                subquery.c.person_id,
-                subquery.c.start_date,
-                subquery.c.end_date,
-                rn_col
+                subquery.c.person_id, subquery.c.start_date, subquery.c.end_date, rn_col
             ).subquery("limit_events")
 
             query = select(
                 limit_subquery.c.person_id,
                 limit_subquery.c.start_date,
-                limit_subquery.c.end_date
+                limit_subquery.c.end_date,
             ).where(limit_subquery.c.rn == 1)
 
         return query
@@ -200,9 +202,9 @@ class QueryBuilder:
         if end_col_def is not None:
             target_end = sub.c[end_col_def.name]
         else:
-             # Fallback if end date column logic differs?
-             # For now all implemented types have end date columns.
-             target_end = target_start
+            # Fallback if end date column logic differs?
+            # For now all implemented types have end date columns.
+            target_end = target_start
 
         selection = [
             target_person.label("person_id"),
