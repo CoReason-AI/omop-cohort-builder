@@ -628,7 +628,6 @@ Criteria = Annotated[
         VisitDetail,
         PayerPlanPeriod,
         LocationRegion,
-        DemographicCriteria,
     ],
     Field(discriminator="criteria_type"),
     BeforeValidator(criteria_deserializer),

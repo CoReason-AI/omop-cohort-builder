@@ -127,6 +127,7 @@ class QueryBuilder:
             ).where(literal_column("1") != literal_column("1"))
 
         # 3. Union all queries
+        combined_query: Select | Any
         if len(criteria_queries) == 1:
             combined_query = criteria_queries[0]
         else:
