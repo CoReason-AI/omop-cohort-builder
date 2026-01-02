@@ -69,6 +69,7 @@ def test_get_criteria_columns_not_implemented():
     Test _get_criteria_columns_dispatch raises NotImplementedError for unknown types.
     Testing the module-level dispatch function directly.
     """
+
     class UnknownCriteria:
         pass
 
