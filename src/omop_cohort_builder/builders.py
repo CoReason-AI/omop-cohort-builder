@@ -24,6 +24,7 @@ from omop_cohort_builder.domain import (
     LocationRegion,
     DemographicCriteria,
     Criteria,
+    PrimaryCriteria,
 )
 from omop_cohort_builder.schema import (
     condition_occurrence,
@@ -67,6 +68,149 @@ class QueryBuilder:
         If the codeset ID is not found, returns an empty list.
         """
         return self.concept_set_map.get(codeset_id, [])
+
+    def build_primary_criteria(self, primary_criteria: PrimaryCriteria) -> Select:
+        """
+        Builds the SQL query for the PrimaryCriteria section of the Cohort Expression.
+        It generates a UNION ALL of all criteria queries, normalizes columns, applies observation window, and result limit.
+        """
+        from sqlalchemy import union_all, literal_column
+
+        criteria_queries = []
+
+        for criteria in primary_criteria.criteria_list:
+            # 1. Build the base query for the criteria
+            base_query = self.build_criteria(criteria)
+
+            # 2. Normalize columns to standard event format (person_id, start_date, end_date)
+            normalized_query = self._normalize_criteria_query(base_query, criteria)
+            criteria_queries.append(normalized_query)
+
+        if not criteria_queries:
+            # Should not happen in valid cohort definitions, but safe fallback
+            # Return empty result
+            # We need to construct a Select that returns the expected columns but empty
+            return select(
+                literal_column("NULL").label("person_id"),
+                literal_column("NULL").label("start_date"),
+                literal_column("NULL").label("end_date"),
+            ).where(literal_column("1") != literal_column("1"))
+
+        # 3. Union all queries
+        if len(criteria_queries) == 1:
+            combined_query = criteria_queries[0]
+        else:
+            combined_query = union_all(*criteria_queries)
+
+        # We need to wrap the union in a subquery to apply limits and windows safely
+        # Aliasing the subquery is important for referencing columns
+        subquery = combined_query.subquery("primary_events")
+
+        # 4. Apply Limit
+        # Use window function (ROW_NUMBER) to support generic SQL limitation (First/Last)
+        # instead of Postgres-specific DISTINCT ON.
+
+        limit_type = primary_criteria.primary_limit.type
+        query = select(subquery.c.person_id, subquery.c.start_date, subquery.c.end_date)
+
+        # TODO: Implement ObservationWindow filtering (PriorDays/PostDays)
+        # This requires joining with the ObservationPeriod table to ensure coverage.
+        # This is strictly a filter, NOT a date modification.
+
+        if limit_type == "First" or limit_type == "Last":
+            from sqlalchemy import func
+
+            # Use a subquery with ROW_NUMBER()
+            # SELECT * FROM (
+            #   SELECT person_id, start_date, end_date,
+            #          ROW_NUMBER() OVER (PARTITION BY person_id ORDER BY start_date ASC/DESC) as rn
+            #   FROM primary_events
+            # ) WHERE rn = 1
+
+            order = subquery.c.start_date.asc() if limit_type == "First" else subquery.c.start_date.desc()
+
+            rn_col = func.row_number().over(
+                partition_by=subquery.c.person_id,
+                order_by=order
+            ).label("rn")
+
+            limit_subquery = select(
+                subquery.c.person_id,
+                subquery.c.start_date,
+                subquery.c.end_date,
+                rn_col
+            ).subquery("limit_events")
+
+            query = select(
+                limit_subquery.c.person_id,
+                limit_subquery.c.start_date,
+                limit_subquery.c.end_date
+            ).where(limit_subquery.c.rn == 1)
+
+        return query
+
+    @singledispatchmethod
+    def _get_criteria_columns(self, criteria: Criteria):
+        """
+        Returns the (start_column, end_column) for the given criteria type.
+        Used for column normalization in primary criteria.
+        """
+        raise NotImplementedError(
+            f"Column mapping not implemented for type: {type(criteria)}"
+        )
+
+    @_get_criteria_columns.register
+    def _get_columns_condition_occurrence(self, criteria: ConditionOccurrence):
+        return (
+            condition_occurrence.c.condition_start_date,
+            condition_occurrence.c.condition_end_date,
+        )
+
+    @_get_criteria_columns.register
+    def _get_columns_drug_exposure(self, criteria: DrugExposure):
+        return (
+            drug_exposure.c.drug_exposure_start_date,
+            drug_exposure.c.drug_exposure_end_date,
+        )
+
+    def _normalize_criteria_query(self, query: Select, criteria: Criteria) -> Select:
+        """
+        Wraps a criteria query to return standard columns: person_id, start_date, end_date.
+        """
+        try:
+            # Use single dispatch to get table columns
+            start_col_def, end_col_def = self._get_criteria_columns(criteria)
+        except NotImplementedError:
+            # Should not happen for supported types; raise clearly
+            raise NotImplementedError(
+                f"Cannot normalize query for type {type(criteria).__name__}: column mapping missing."
+            )
+
+        # Wrap the original query as a subquery
+        sub = query.subquery()
+
+        # We need to select the corresponding columns from the subquery.
+        # SQLAlchemy subqueries expose columns via .c matching the original names.
+
+        target_person = sub.c.person_id
+        target_start = sub.c[start_col_def.name]
+
+        # End date might be same as start if end_col_def is None, but here we expect a column def
+        # If the original table definition has the column, the subquery should too.
+        if end_col_def is not None:
+            target_end = sub.c[end_col_def.name]
+        else:
+             # Fallback if end date column logic differs?
+             # For now all implemented types have end date columns.
+             target_end = target_start
+
+        selection = [
+            target_person.label("person_id"),
+            target_start.label("start_date"),
+            target_end.label("end_date"),
+        ]
+
+        return select(*selection)
 
     @singledispatchmethod
     def build_criteria(self, criteria: Criteria) -> Select:
