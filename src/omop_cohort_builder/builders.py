@@ -182,7 +182,47 @@ class QueryBuilder:
             )
             query = self._apply_numeric_filter(query, length_expr, criteria.era_length)
 
-        # TODO: Implement age_at_start, age_at_end, gender (requires Person table join)
+        # Demographics
+        join_person = (
+            criteria.age_at_start
+            or criteria.age_at_end
+            or criteria.gender
+            or criteria.gender_cs
+        )
+
+        if join_person:
+            query = query.join(person, condition_era.c.person_id == person.c.person_id)
+
+        # 5. Age At Start (NumericRange) -> (Year(condition_era_start_date) - person.year_of_birth)
+        if criteria.age_at_start:
+            from sqlalchemy import extract
+
+            age_expr = (
+                extract("year", condition_era.c.condition_era_start_date)
+                - person.c.year_of_birth
+            )
+            query = self._apply_numeric_filter(query, age_expr, criteria.age_at_start)
+
+        # 6. Age At End (NumericRange) -> (Year(condition_era_end_date) - person.year_of_birth)
+        if criteria.age_at_end:
+            from sqlalchemy import extract
+
+            age_expr = (
+                extract("year", condition_era.c.condition_era_end_date)
+                - person.c.year_of_birth
+            )
+            query = self._apply_numeric_filter(query, age_expr, criteria.age_at_end)
+
+        # 7. Gender (List of Concepts) -> person.gender_concept_id
+        if criteria.gender:
+            concept_ids = [c.concept_id for c in criteria.gender]
+            query = query.where(person.c.gender_concept_id.in_(concept_ids))
+
+        # 7b. Gender (ConceptSetSelection)
+        if criteria.gender_cs:
+            query = self._apply_concept_set_selection(
+                query, person.c.gender_concept_id, criteria.gender_cs
+            )
 
         return query
 
