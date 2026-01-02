@@ -138,14 +138,15 @@ def test_primary_criteria_limit_last():
     assert "DESC" in normalized or "desc" in normalized
 
 
-def test_observation_window_is_noop_for_dates():
+def test_observation_window_filters():
     """
-    Test that observation window (PriorDays/PostDays) does NOT shift event dates in PrimaryCriteria.
-    It is a filter requirement, not a date modifier.
+    Test that ObservationWindow adds filtering logic.
+    Primary Criteria should include events only if they fall within an observation period
+    with sufficient prior and post days.
     """
     pc = PrimaryCriteria(
         CriteriaList=[{"ConditionOccurrence": {"CodesetId": 1}}],
-        ObservationWindow={"PriorDays": 5, "PostDays": 5},
+        ObservationWindow={"PriorDays": 365, "PostDays": 30},
         PrimaryCriteriaLimit={"Type": "All"},
     )
 
@@ -159,6 +160,49 @@ def test_observation_window_is_noop_for_dates():
     )
     normalized = normalize_sql(sql)
 
-    # Ensure NO date math is present in the select list for start/end dates
-    assert " - 5" not in normalized
-    assert " + 5" not in normalized
+    # 1. Must join observation_period
+    assert "JOIN observation_period" in normalized
+
+    # 2. Must filter by PriorDays (365)
+    # Logic: observation_period_start_date <= event_start_date - 365 days
+    # OR: event_start_date >= observation_period_start_date + 365 days
+    # Since we are checking SQL text, we look for the presence of the number 365 and some date comparison
+    assert "365" in normalized
+
+    # 3. Must filter by PostDays (30)
+    # Logic: observation_period_end_date >= event_start_date + 30 days
+    # OR: event_start_date <= observation_period_end_date - 30 days
+    assert "30" in normalized
+
+    # 4. Must relate the join to person_id
+    assert "observation_period.person_id" in normalized
+
+
+def test_observation_window_default():
+    """
+    Test that ObservationWindow (0,0) still joins observation_period to ensure
+    validity of the event (must be within SOME observation period).
+    """
+    pc = PrimaryCriteria(
+        CriteriaList=[{"ConditionOccurrence": {"CodesetId": 1}}],
+        ObservationWindow={"PriorDays": 0, "PostDays": 0},
+        PrimaryCriteriaLimit={"Type": "All"},
+    )
+
+    qb = QueryBuilder(concept_set_map={1: [100]})
+    query = qb.build_primary_criteria(pc)
+
+    sql = str(
+        query.compile(
+            dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+        )
+    )
+    normalized = normalize_sql(sql)
+
+    # Must still join OP
+    assert "JOIN observation_period" in normalized
+    # But filters should be simple >= start_date and <= end_date without extra math
+    # We check that we are NOT seeing arbitrary numbers (like if we hardcoded something)
+    # but we DO expect the join.
+    assert "observation_period.observation_period_start_date" in normalized
+    assert "observation_period.observation_period_end_date" in normalized

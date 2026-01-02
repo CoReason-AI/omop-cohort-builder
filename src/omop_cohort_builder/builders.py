@@ -113,9 +113,63 @@ class QueryBuilder:
         limit_type = primary_criteria.primary_limit.type
         query = select(subquery.c.person_id, subquery.c.start_date, subquery.c.end_date)
 
-        # TODO: Implement ObservationWindow filtering (PriorDays/PostDays)
+        # Apply ObservationWindow filtering (PriorDays/PostDays)
         # This requires joining with the ObservationPeriod table to ensure coverage.
-        # This is strictly a filter, NOT a date modification.
+        # We always join observation_period in OHDSI logic to ensure validity.
+        # If the user explicitly sets 0,0 it effectively just filters for "any overlapping period".
+
+        prior_days = (
+            primary_criteria.observation_window.prior_days
+            if primary_criteria.observation_window
+            else 0
+        )
+        post_days = (
+            primary_criteria.observation_window.post_days
+            if primary_criteria.observation_window
+            else 0
+        )
+
+        # We need to filter 'subquery' by joining with observation_period.
+        # We construct a new selection from subquery + join + where.
+
+        # Aliases
+        op = observation_period
+
+        # Join condition: person_id
+        join_cond = subquery.c.person_id == op.c.person_id
+
+        # Filter 1: event_start_date >= op_start_date + prior_days
+        # Filter 2: event_start_date <= op_end_date - post_days
+
+        query = select(
+            subquery.c.person_id, subquery.c.start_date, subquery.c.end_date
+        ).join(op, join_cond)
+
+        if prior_days > 0:
+            query = query.where(
+                subquery.c.start_date
+                >= (op.c.observation_period_start_date + prior_days)
+            )
+        else:
+            query = query.where(
+                subquery.c.start_date >= op.c.observation_period_start_date
+            )
+
+        if post_days > 0:
+            query = query.where(
+                subquery.c.start_date <= (op.c.observation_period_end_date - post_days)
+            )
+        else:
+            query = query.where(
+                subquery.c.start_date <= op.c.observation_period_end_date
+            )
+
+        # Wrap this filtered result back into a subquery so the Limit logic works on it
+        # The Limit logic expects 'subquery' to be the source.
+        subquery = query.subquery("observation_window_events")
+
+        # Reset query to select from this new subquery to be safe for next steps
+        query = select(subquery.c.person_id, subquery.c.start_date, subquery.c.end_date)
 
         if limit_type == "First" or limit_type == "Last":
             from sqlalchemy import func
