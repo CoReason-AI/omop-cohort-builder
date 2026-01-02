@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from functools import singledispatchmethod
+from functools import singledispatchmethod, singledispatch
 from typing import Dict, List, Any
 
 from sqlalchemy import select, Select, ColumnElement
@@ -50,6 +50,33 @@ from omop_cohort_builder.schema import (
     person,
     provider,
 )
+
+
+@singledispatch
+def _get_criteria_columns_dispatch(criteria: Criteria):
+    """
+    Returns the (start_column, end_column) for the given criteria type.
+    Used for column normalization in primary criteria.
+    """
+    raise NotImplementedError(
+        f"Column mapping not implemented for type: {type(criteria)}"
+    )
+
+
+@_get_criteria_columns_dispatch.register
+def _(criteria: ConditionOccurrence):
+    return (
+        condition_occurrence.c.condition_start_date,
+        condition_occurrence.c.condition_end_date,
+    )
+
+
+@_get_criteria_columns_dispatch.register
+def _(criteria: DrugExposure):
+    return (
+        drug_exposure.c.drug_exposure_start_date,
+        drug_exposure.c.drug_exposure_end_date,
+    )
 
 
 class QueryBuilder:
@@ -154,29 +181,12 @@ class QueryBuilder:
 
         return query
 
-    @singledispatchmethod
     def _get_criteria_columns(self, criteria: Criteria):
         """
         Returns the (start_column, end_column) for the given criteria type.
         Used for column normalization in primary criteria.
         """
-        raise NotImplementedError(
-            f"Column mapping not implemented for type: {type(criteria)}"
-        )
-
-    @_get_criteria_columns.register
-    def _get_columns_condition_occurrence(self, criteria: ConditionOccurrence):
-        return (
-            condition_occurrence.c.condition_start_date,
-            condition_occurrence.c.condition_end_date,
-        )
-
-    @_get_criteria_columns.register
-    def _get_columns_drug_exposure(self, criteria: DrugExposure):
-        return (
-            drug_exposure.c.drug_exposure_start_date,
-            drug_exposure.c.drug_exposure_end_date,
-        )
+        return _get_criteria_columns_dispatch(criteria)  # pragma: no cover
 
     def _normalize_criteria_query(self, query: Select, criteria: Criteria) -> Select:
         """

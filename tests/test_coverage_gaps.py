@@ -1,5 +1,5 @@
 from omop_cohort_builder.domain import criteria_deserializer, end_strategy_deserializer
-from omop_cohort_builder.builders import QueryBuilder
+from omop_cohort_builder.builders import QueryBuilder, _get_criteria_columns_dispatch
 from omop_cohort_builder.domain import PrimaryCriteria
 from sqlalchemy import select
 import pytest
@@ -56,18 +56,6 @@ def test_query_builder_base_not_implemented():
     """
     qb = QueryBuilder()
 
-    # We can't easily instantiate abstract Criteria, but we can pass an object that
-    # mimics it or use a known type that isn't registered if any (but all are registered).
-    # However, build_criteria is singledispatch. If we pass a Criteria subclass
-    # that has no register, it hits the base.
-
-    # We need a dummy criteria that satisfies the type hint but isn't registered.
-    # Since Criteria is a Union, we might need to mock or use a dynamic type
-    # if we want to bypass the type checker or just rely on runtime behavior.
-
-    # Actually, the base implementation `build_criteria(self, criteria: Criteria)`
-    # is the default dispatch.
-
     class UnknownCriteria:
         pass
 
@@ -78,15 +66,14 @@ def test_query_builder_base_not_implemented():
 
 def test_get_criteria_columns_not_implemented():
     """
-    Test _get_criteria_columns raises NotImplementedError for unknown types.
+    Test _get_criteria_columns_dispatch raises NotImplementedError for unknown types.
+    Testing the module-level dispatch function directly.
     """
-    qb = QueryBuilder()
-
     class UnknownCriteria:
         pass
 
     with pytest.raises(NotImplementedError) as excinfo:
-        qb._get_criteria_columns(UnknownCriteria())
+        _get_criteria_columns_dispatch(UnknownCriteria())
     assert "Column mapping not implemented for type" in str(excinfo.value)
 
 
