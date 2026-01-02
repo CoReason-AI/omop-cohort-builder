@@ -94,7 +94,7 @@ class Concept(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
     concept_id: int = Field(alias="CONCEPT_ID")
-    concept_name: str = Field(alias="CONCEPT_NAME")
+    concept_name: Optional[str] = Field(default=None, alias="CONCEPT_NAME")
     standard_concept: Optional[str] = Field(default=None, alias="STANDARD_CONCEPT")
     standard_concept_caption: Optional[str] = Field(
         default=None, alias="STANDARD_CONCEPT_CAPTION"
