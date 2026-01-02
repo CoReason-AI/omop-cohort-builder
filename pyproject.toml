@@ -3,12 +3,15 @@ name = "omop_cohort_builder"
 version = "0.1.0"
 description = "A Python library for building OHDSI Circe cohort definitions"
 authors = ["Admin <admin@example.com>"]
-packages = [{include = "omop_cohort_builder", from = "src"}]
+packages = [{include = "omop_cohort_builder", from = "src"}, {include = "coreason_identity", from = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.12"
 pydantic = "^2.0"
 sqlalchemy = "^2.0"
+authlib = "^1.6.6"
+pydantic-settings = "^2.12.0"
+email-validator = "^2.3.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
@@ -24,7 +27,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
-addopts = "--cov=omop_cohort_builder --cov-report=term-missing"
+addopts = "--cov=omop_cohort_builder --cov=coreason_identity --cov-report=term-missing"
 testpaths = ["tests"]
 
 [tool.coverage.run]
