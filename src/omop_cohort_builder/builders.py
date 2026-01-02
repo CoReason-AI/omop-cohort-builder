@@ -191,9 +191,7 @@ class QueryBuilder:
         )
 
         if join_person:
-            query = query.join(
-                person, condition_era.c.person_id == person.c.person_id
-            )
+            query = query.join(person, condition_era.c.person_id == person.c.person_id)
 
         # 5. Age At Start (NumericRange) -> (Year(condition_era_start_date) - person.year_of_birth)
         if criteria.age_at_start:

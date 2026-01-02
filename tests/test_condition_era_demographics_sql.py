@@ -1,6 +1,11 @@
 from sqlalchemy.dialects import postgresql
 from omop_cohort_builder.builders import QueryBuilder
-from omop_cohort_builder.domain import ConditionEra, NumericRange, Concept, ConceptSetSelection
+from omop_cohort_builder.domain import (
+    ConditionEra,
+    NumericRange,
+    Concept,
+    ConceptSetSelection,
+)
 
 
 def test_condition_era_age_at_start():
