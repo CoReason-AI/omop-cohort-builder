@@ -237,9 +237,24 @@ def test_get_criteria_columns_unimplemented_direct():
         default_impl(DummyCriteria())
 
 
-def test_get_criteria_columns_method_call():
-    """Test that the wrapper method call works (and covers the return line)."""
+def test_build_corelated_criteria_no_window():
+    """Test CorelatedCriteria with no window (should just correlate on person)."""
+    criteria = CorelatedCriteria(
+        criteria=ConditionOccurrence(codeset_id=1),
+        start_window=None,
+        occurrence=Occurrence(type=2, count=1),
+    )
     qb = QueryBuilder()
-    c = ConditionOccurrence(codeset_id=1)
-    cols = qb._get_criteria_columns(c)
-    assert cols is not None
+    # Mock tables to avoid schema import issues if not needed or assume query building works
+    primary_events = table("primary_events", column("person_id"))
+
+    expr = qb._build_corelated_criteria_expression(criteria, primary_events)
+    assert expr is not None
+    # Compile to check no BETWEEN clause
+    query = select(primary_events).where(expr)
+    sql = str(
+        query.compile(
+            dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+        )
+    )
+    assert "BETWEEN" not in sql

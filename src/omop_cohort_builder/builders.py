@@ -58,7 +58,7 @@ def _get_criteria_columns_dispatch(criteria: Criteria):
     Returns the (start_column, end_column) for the given criteria type.
     Used for column normalization in primary criteria.
     """
-    raise NotImplementedError(
+    raise NotImplementedError(  # pragma: no cover
         f"Column mapping not implemented for type: {type(criteria)}"
     )
 
@@ -181,20 +181,13 @@ class QueryBuilder:
 
         return query
 
-    def _get_criteria_columns(self, criteria: Criteria):
-        """
-        Returns the (start_column, end_column) for the given criteria type.
-        Used for column normalization in primary criteria.
-        """
-        return _get_criteria_columns_dispatch(criteria)  # pragma: no cover
-
     def _normalize_criteria_query(self, query: Select, criteria: Criteria) -> Select:
         """
         Wraps a criteria query to return standard columns: person_id, start_date, end_date.
         """
         try:
             # Use single dispatch to get table columns
-            start_col_def, end_col_def = self._get_criteria_columns(criteria)
+            start_col_def, end_col_def = _get_criteria_columns_dispatch(criteria)
         except NotImplementedError:
             # Should not happen for supported types; raise clearly
             raise NotImplementedError(
@@ -307,7 +300,7 @@ class QueryBuilder:
 
         # 2. Identify the criteria columns for correlation (person_id, start_date)
         # We need to know which columns to use.
-        start_col, end_col = self._get_criteria_columns(criteria.criteria)
+        start_col, end_col = _get_criteria_columns_dispatch(criteria.criteria)
         # We assume build_criteria returns a query selecting from the main table,
         # so we can access columns via the table objects directly or inspect the query.
         # However, `build_criteria` returns `select(table)`.
