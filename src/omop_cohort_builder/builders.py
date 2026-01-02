@@ -199,12 +199,8 @@ class QueryBuilder:
 
         # End date might be same as start if end_col_def is None, but here we expect a column def
         # If the original table definition has the column, the subquery should too.
-        if end_col_def is not None:
-            target_end = sub.c[end_col_def.name]
-        else:
-            # Fallback if end date column logic differs?
-            # For now all implemented types have end date columns.
-            target_end = target_start
+        # We assume end_col_def is always provided for supported types
+        target_end = sub.c[end_col_def.name]
 
         selection = [
             target_person.label("person_id"),

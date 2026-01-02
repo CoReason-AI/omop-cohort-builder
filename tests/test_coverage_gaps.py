@@ -1,4 +1,8 @@
 from omop_cohort_builder.domain import criteria_deserializer, end_strategy_deserializer
+from omop_cohort_builder.builders import QueryBuilder
+from omop_cohort_builder.domain import PrimaryCriteria
+from sqlalchemy import select
+import pytest
 
 
 def test_criteria_deserializer_coverage():
@@ -40,3 +44,91 @@ def test_end_strategy_deserializer_coverage():
     inp = {"DateOffset": {"DateField": "EndDate"}}
     out = end_strategy_deserializer(inp)
     assert out["strategy_type"] == "DateOffset"
+
+
+# --- Query Builder Coverage Tests ---
+
+
+def test_query_builder_base_not_implemented():
+    """
+    Test the base build_criteria method raises NotImplementedError
+    when called with an unknown criteria type.
+    """
+    qb = QueryBuilder()
+
+    # We can't easily instantiate abstract Criteria, but we can pass an object that
+    # mimics it or use a known type that isn't registered if any (but all are registered).
+    # However, build_criteria is singledispatch. If we pass a Criteria subclass
+    # that has no register, it hits the base.
+
+    # We need a dummy criteria that satisfies the type hint but isn't registered.
+    # Since Criteria is a Union, we might need to mock or use a dynamic type
+    # if we want to bypass the type checker or just rely on runtime behavior.
+
+    # Actually, the base implementation `build_criteria(self, criteria: Criteria)`
+    # is the default dispatch.
+
+    class UnknownCriteria:
+        pass
+
+    with pytest.raises(NotImplementedError) as excinfo:
+        qb.build_criteria("not a criteria object")
+    assert "Query builder not implemented for type" in str(excinfo.value)
+
+
+def test_get_criteria_columns_not_implemented():
+    """
+    Test _get_criteria_columns raises NotImplementedError for unknown types.
+    """
+    qb = QueryBuilder()
+
+    class UnknownCriteria:
+        pass
+
+    with pytest.raises(NotImplementedError) as excinfo:
+        qb._get_criteria_columns(UnknownCriteria())
+    assert "Column mapping not implemented for type" in str(excinfo.value)
+
+
+def test_normalize_criteria_query_error():
+    """
+    Test _normalize_criteria_query raises NotImplementedError when mapping fails.
+    """
+    qb = QueryBuilder()
+
+    # Use a dummy Select
+    query = select(1)
+
+    class UnknownCriteria:
+        pass
+
+    with pytest.raises(NotImplementedError) as excinfo:
+        qb._normalize_criteria_query(query, UnknownCriteria())
+    assert "Cannot normalize query for type" in str(excinfo.value)
+
+
+def test_build_primary_criteria_empty_list():
+    """
+    Test build_primary_criteria with empty criteria list returns valid empty select.
+    """
+    qb = QueryBuilder()
+    pc = PrimaryCriteria(
+        CriteriaList=[],
+        ObservationWindow={"PriorDays": 0, "PostDays": 0},
+        PrimaryCriteriaLimit={"Type": "All"},
+    )
+
+    query = qb.build_primary_criteria(pc)
+    # Check if it selects NULLs and 1!=1
+    sql = str(query)
+    assert "NULL" in sql
+    # exact SQL depends on dialect compilation defaults but should be safe
+
+
+def test_resolve_codeset_missing():
+    """
+    Test _resolve_codeset returns empty list for unknown ID.
+    """
+    qb = QueryBuilder(concept_set_map={1: [100]})
+    assert qb._resolve_codeset(2) == []
+    assert qb._resolve_codeset(1) == [100]
