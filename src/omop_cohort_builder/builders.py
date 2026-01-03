@@ -1100,10 +1100,26 @@ class QueryBuilder:
                 measurement.c.measurement_type_concept_id.in_(concept_ids)
             )
 
+        # 1b. Measurement Type (ConceptSetSelection)
+        if criteria.measurement_type_cs:
+            query = self._apply_concept_set_selection(
+                query,
+                measurement.c.measurement_type_concept_id,
+                criteria.measurement_type_cs,
+            )
+
         # 2. Operator (List of Concepts) -> operator_concept_id IN (...)
         if criteria.operator:
             concept_ids = [c.concept_id for c in criteria.operator]
             query = query.where(measurement.c.operator_concept_id.in_(concept_ids))
+
+        # 2b. Operator (ConceptSetSelection)
+        if criteria.operator_cs:
+            query = self._apply_concept_set_selection(
+                query,
+                measurement.c.operator_concept_id,
+                criteria.operator_cs,
+            )
 
         # 3. Value As Number (NumericRange)
         if criteria.value_as_number:
@@ -1116,10 +1132,26 @@ class QueryBuilder:
             concept_ids = [c.concept_id for c in criteria.value_as_concept]
             query = query.where(measurement.c.value_as_concept_id.in_(concept_ids))
 
+        # 4b. Value As Concept (ConceptSetSelection)
+        if criteria.value_as_concept_cs:
+            query = self._apply_concept_set_selection(
+                query,
+                measurement.c.value_as_concept_id,
+                criteria.value_as_concept_cs,
+            )
+
         # 5. Unit (List of Concepts) -> unit_concept_id IN (...)
         if criteria.unit:
             concept_ids = [c.concept_id for c in criteria.unit]
             query = query.where(measurement.c.unit_concept_id.in_(concept_ids))
+
+        # 5b. Unit (ConceptSetSelection)
+        if criteria.unit_cs:
+            query = self._apply_concept_set_selection(
+                query,
+                measurement.c.unit_concept_id,
+                criteria.unit_cs,
+            )
 
         # 6. Range Low (NumericRange)
         if criteria.range_low:
@@ -1257,7 +1289,13 @@ class QueryBuilder:
                     drug_exposure.c.drug_type_concept_id.in_(concept_ids)
                 )
 
-        # TODO: Implement drug_type_cs (ConceptSet)
+        # 3b. Drug Type (ConceptSetSelection)
+        if criteria.drug_type_cs:
+            query = self._apply_concept_set_selection(
+                query,
+                drug_exposure.c.drug_type_concept_id,
+                criteria.drug_type_cs,
+            )
 
         # 4. Stop Reason (TextFilter) -> stop_reason LIKE ...
         if criteria.stop_reason:
@@ -1288,7 +1326,13 @@ class QueryBuilder:
             concept_ids = [c.concept_id for c in criteria.route_concept]
             query = query.where(drug_exposure.c.route_concept_id.in_(concept_ids))
 
-        # TODO: Implement route_concept_cs
+        # 8b. Route Concept (ConceptSetSelection)
+        if criteria.route_concept_cs:
+            query = self._apply_concept_set_selection(
+                query,
+                drug_exposure.c.route_concept_id,
+                criteria.route_concept_cs,
+            )
 
         # 9. Lot Number (TextFilter) -> lot_number LIKE ...
         if criteria.lot_number:

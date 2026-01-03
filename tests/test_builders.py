@@ -9,6 +9,7 @@ from omop_cohort_builder.domain import (
     DrugExposure,
     VisitOccurrence,
     ProcedureOccurrence,
+    Measurement,
 )
 from omop_cohort_builder.base import (
     TextFilter,
@@ -16,6 +17,7 @@ from omop_cohort_builder.base import (
     Concept,
     DateRange,
     CirceModel,
+    ConceptSetSelection,
 )
 
 
@@ -179,6 +181,24 @@ def test_drug_exposure_concept_filters():
 
     assert "drug_exposure.drug_type_concept_id IN (101)" in sql
     assert "drug_exposure.route_concept_id IN (102)" in sql
+
+
+def test_drug_exposure_concept_set_filters():
+    """Test DrugExposure with ConceptSetSelection filters (drug_type_cs, route_concept_cs)."""
+    # 1. drug_type_cs inclusion
+    criteria = DrugExposure(
+        drug_type_cs=ConceptSetSelection(codeset_id=1, is_exclusion=False),
+        route_concept_cs=ConceptSetSelection(codeset_id=2, is_exclusion=True),
+    )
+
+    # Mock map
+    cs_map = {1: [100, 101], 2: [200, 201]}
+    builder = QueryBuilder(concept_set_map=cs_map)
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    assert "drug_exposure.drug_type_concept_id IN (100, 101)" in sql
+    assert "drug_exposure.route_concept_id NOT IN (200, 201)" in sql
 
 
 def test_numeric_filter_ops():
@@ -431,3 +451,154 @@ def test_date_filter_ops():
         "procedure_occurrence.procedure_date NOT BETWEEN '2020-01-01' AND '2020-12-31'"
         in sql_nbt
     )
+
+
+def test_concept_set_empty_inclusion():
+    """Test empty concept set filter (inclusion) -> should return False (exclude all)."""
+    # codeset_id=1 maps to nothing in our empty map default
+    criteria = DrugExposure(
+        drug_type_cs=ConceptSetSelection(codeset_id=1, is_exclusion=False)
+    )
+    builder = QueryBuilder(concept_set_map={})  # Empty map
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    # SQLAlchemy compiles `literal(False)` often as `0 = 1` or `false` depending on dialect context
+    # In WHERE clause: `WHERE false` or `WHERE 0 = 1`
+    assert "false" in sql.lower() or "0 = 1" in sql
+
+
+def test_concept_set_empty_exclusion():
+    """Test empty concept set filter (exclusion) -> should return True (include all / no filter)."""
+    criteria = DrugExposure(
+        drug_type_cs=ConceptSetSelection(codeset_id=1, is_exclusion=True)
+    )
+    builder = QueryBuilder(concept_set_map={})
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    # Should NOT have a WHERE clause for drug_type_concept_id
+    # We check that the column name appears in the SELECT list (implicitly true)
+    # but NOT in a WHERE clause context (e.g. "WHERE ... drug_type_concept_id ...")
+    # Since there are no other filters, "WHERE" should not be present at all.
+    assert "WHERE" not in sql
+
+
+def test_drug_exposure_mixed_concept_filters():
+    """Test mixing explicit concept list AND concept set selection."""
+    c1 = Concept(
+        CONCEPT_ID=101,
+        CONCEPT_NAME="Drug A",
+        DOMAIN_ID="Drug",
+        VOCABULARY_ID="RxNorm",
+        CONCEPT_CLASS_ID="Drug",
+    )
+    # List filter: IN (101)
+    # Set filter: IN (200, 201)
+    criteria = DrugExposure(
+        drug_type=[c1],
+        drug_type_cs=ConceptSetSelection(codeset_id=2, is_exclusion=False),
+    )
+    cs_map = {2: [200, 201]}
+    builder = QueryBuilder(concept_set_map=cs_map)
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    assert "drug_exposure.drug_type_concept_id IN (101)" in sql
+    assert "drug_exposure.drug_type_concept_id IN (200, 201)" in sql
+    assert "AND" in sql
+
+
+def test_route_concept_exclusion_nullable():
+    """Test exclusion on a nullable column (route_concept_id)."""
+    # Exclusion: NOT IN (300)
+    criteria = DrugExposure(
+        route_concept_cs=ConceptSetSelection(codeset_id=3, is_exclusion=True)
+    )
+    cs_map = {3: [300]}
+    builder = QueryBuilder(concept_set_map=cs_map)
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    assert "drug_exposure.route_concept_id NOT IN (300)" in sql
+
+
+# --- Measurement Tests ---
+
+
+def test_measurement_concept_set_filters():
+    """Test ConceptSetSelection filters for Measurement."""
+    criteria = Measurement(
+        measurement_type_cs=ConceptSetSelection(codeset_id=1, is_exclusion=False),
+        operator_cs=ConceptSetSelection(codeset_id=2, is_exclusion=False),
+        value_as_concept_cs=ConceptSetSelection(codeset_id=3, is_exclusion=True),
+        unit_cs=ConceptSetSelection(codeset_id=4, is_exclusion=False),
+    )
+    cs_map = {
+        1: [100],
+        2: [200],
+        3: [300],
+        4: [400],
+    }
+    builder = QueryBuilder(concept_set_map=cs_map)
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    assert "measurement.measurement_type_concept_id IN (100)" in sql
+    assert "measurement.operator_concept_id IN (200)" in sql
+    assert "measurement.value_as_concept_id NOT IN (300)" in sql
+    assert "measurement.unit_concept_id IN (400)" in sql
+
+
+def test_measurement_empty_cs_inclusion():
+    """Test empty inclusion filter for Measurement (should be False)."""
+    criteria = Measurement(
+        measurement_type_cs=ConceptSetSelection(codeset_id=1, is_exclusion=False)
+    )
+    builder = QueryBuilder(concept_set_map={})
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    assert "false" in sql.lower() or "0 = 1" in sql
+
+
+def test_measurement_empty_cs_exclusion():
+    """Test empty exclusion filter for Measurement (should be no-op)."""
+    criteria = Measurement(
+        measurement_type_cs=ConceptSetSelection(codeset_id=1, is_exclusion=True)
+    )
+    builder = QueryBuilder(concept_set_map={})
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    assert "WHERE" not in sql
+
+
+def test_measurement_mixed_filters():
+    """Test mixing scalar list and ConceptSetSelection for Measurement."""
+    c1 = Concept(CONCEPT_ID=10, CONCEPT_NAME="Op1", DOMAIN_ID="Meas", VOCABULARY_ID="V")
+    criteria = Measurement(
+        operator=[c1],
+        operator_cs=ConceptSetSelection(codeset_id=2, is_exclusion=False),
+    )
+    cs_map = {2: [20, 21]}
+    builder = QueryBuilder(concept_set_map=cs_map)
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    assert "measurement.operator_concept_id IN (10)" in sql
+    assert "measurement.operator_concept_id IN (20, 21)" in sql
+    assert "AND" in sql
+
+
+def test_measurement_nullable_exclusion():
+    """Test exclusion on nullable columns (e.g. operator_concept_id)."""
+    criteria = Measurement(
+        operator_cs=ConceptSetSelection(codeset_id=1, is_exclusion=True)
+    )
+    cs_map = {1: [999]}
+    builder = QueryBuilder(concept_set_map=cs_map)
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    assert "measurement.operator_concept_id NOT IN (999)" in sql

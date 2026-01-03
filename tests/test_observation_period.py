@@ -26,7 +26,7 @@ def test_observation_period_empty_serialization():
     assert json_output == expected
 
 
-def test_observation_period_parity(snapshot):
+def test_observation_period_parity():
     """
     Test deserialization and round-trip serialization using a real Circe JSON resource.
     """
