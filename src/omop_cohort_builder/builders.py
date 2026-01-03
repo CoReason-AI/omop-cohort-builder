@@ -60,7 +60,7 @@ def _get_criteria_columns_dispatch(criteria: Criteria):
     Used for column normalization in primary criteria.
     """
     raise NotImplementedError(  # pragma: no cover
-        f"Column mapping not implemented for type: {type(criteria)}"
+        f"Column mapping not implemented for type: {type(criteria)}"  # pragma: no cover
     )
 
 
@@ -473,7 +473,7 @@ class QueryBuilder:
 
                 return query
             else:
-                pass  # pragma: no cover
+                pass
 
         return query
 
@@ -547,7 +547,7 @@ class QueryBuilder:
 
         if occurrence.type == Occurrence.AT_MOST or (
             occurrence.type == Occurrence.EXACTLY and occurrence.count == 0
-        ):  # pragma: no cover
+        ):
             # Switch to LEFT JOIN
             query = select(
                 literal(index_id).label("index_id"),
@@ -691,7 +691,7 @@ class QueryBuilder:
         Dispatches the build call to the appropriate method based on the criteria type.
         """
         raise NotImplementedError(  # pragma: no cover
-            f"Query builder not implemented for type: {type(criteria)}"
+            f"Query builder not implemented for type: {type(criteria)}"  # pragma: no cover
         )
 
     @build_criteria.register
