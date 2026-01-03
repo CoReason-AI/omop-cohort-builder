@@ -548,3 +548,57 @@ def test_measurement_concept_set_filters():
     assert "measurement.operator_concept_id IN (200)" in sql
     assert "measurement.value_as_concept_id NOT IN (300)" in sql
     assert "measurement.unit_concept_id IN (400)" in sql
+
+
+def test_measurement_empty_cs_inclusion():
+    """Test empty inclusion filter for Measurement (should be False)."""
+    criteria = Measurement(
+        measurement_type_cs=ConceptSetSelection(codeset_id=1, is_exclusion=False)
+    )
+    builder = QueryBuilder(concept_set_map={})
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    assert "false" in sql.lower() or "0 = 1" in sql
+
+
+def test_measurement_empty_cs_exclusion():
+    """Test empty exclusion filter for Measurement (should be no-op)."""
+    criteria = Measurement(
+        measurement_type_cs=ConceptSetSelection(codeset_id=1, is_exclusion=True)
+    )
+    builder = QueryBuilder(concept_set_map={})
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    assert "WHERE" not in sql
+
+
+def test_measurement_mixed_filters():
+    """Test mixing scalar list and ConceptSetSelection for Measurement."""
+    c1 = Concept(CONCEPT_ID=10, CONCEPT_NAME="Op1", DOMAIN_ID="Meas", VOCABULARY_ID="V")
+    criteria = Measurement(
+        operator=[c1],
+        operator_cs=ConceptSetSelection(codeset_id=2, is_exclusion=False),
+    )
+    cs_map = {2: [20, 21]}
+    builder = QueryBuilder(concept_set_map=cs_map)
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    assert "measurement.operator_concept_id IN (10)" in sql
+    assert "measurement.operator_concept_id IN (20, 21)" in sql
+    assert "AND" in sql
+
+
+def test_measurement_nullable_exclusion():
+    """Test exclusion on nullable columns (e.g. operator_concept_id)."""
+    criteria = Measurement(
+        operator_cs=ConceptSetSelection(codeset_id=1, is_exclusion=True)
+    )
+    cs_map = {1: [999]}
+    builder = QueryBuilder(concept_set_map=cs_map)
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    assert "measurement.operator_concept_id NOT IN (999)" in sql
