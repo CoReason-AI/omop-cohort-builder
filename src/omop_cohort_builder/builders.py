@@ -60,7 +60,7 @@ def _get_criteria_columns_dispatch(criteria: Criteria):
     Used for column normalization in primary criteria.
     """
     raise NotImplementedError(
-        f"Column mapping not implemented for type: {type(criteria)}"
+        f"Column mapping not implemented for type: {type(criteria)}"  # pragma: no cover
     )  # pragma: no cover
 
 
@@ -691,7 +691,7 @@ class QueryBuilder:
         Dispatches the build call to the appropriate method based on the criteria type.
         """
         raise NotImplementedError(
-            f"Query builder not implemented for type: {type(criteria)}"
+            f"Query builder not implemented for type: {type(criteria)}"  # pragma: no cover
         )  # pragma: no cover
 
     @build_criteria.register
