@@ -16,6 +16,7 @@ from omop_cohort_builder.base import (
     Concept,
     DateRange,
     CirceModel,
+    ConceptSetSelection,
 )
 
 
@@ -179,6 +180,24 @@ def test_drug_exposure_concept_filters():
 
     assert "drug_exposure.drug_type_concept_id IN (101)" in sql
     assert "drug_exposure.route_concept_id IN (102)" in sql
+
+
+def test_drug_exposure_concept_set_filters():
+    """Test DrugExposure with ConceptSetSelection filters (drug_type_cs, route_concept_cs)."""
+    # 1. drug_type_cs inclusion
+    criteria = DrugExposure(
+        drug_type_cs=ConceptSetSelection(codeset_id=1, is_exclusion=False),
+        route_concept_cs=ConceptSetSelection(codeset_id=2, is_exclusion=True),
+    )
+
+    # Mock map
+    cs_map = {1: [100, 101], 2: [200, 201]}
+    builder = QueryBuilder(concept_set_map=cs_map)
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    assert "drug_exposure.drug_type_concept_id IN (100, 101)" in sql
+    assert "drug_exposure.route_concept_id NOT IN (200, 201)" in sql
 
 
 def test_numeric_filter_ops():

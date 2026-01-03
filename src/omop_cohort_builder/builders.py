@@ -1257,7 +1257,13 @@ class QueryBuilder:
                     drug_exposure.c.drug_type_concept_id.in_(concept_ids)
                 )
 
-        # TODO: Implement drug_type_cs (ConceptSet)
+        # 3b. Drug Type (ConceptSetSelection)
+        if criteria.drug_type_cs:
+            query = self._apply_concept_set_selection(
+                query,
+                drug_exposure.c.drug_type_concept_id,
+                criteria.drug_type_cs,
+            )
 
         # 4. Stop Reason (TextFilter) -> stop_reason LIKE ...
         if criteria.stop_reason:
@@ -1288,7 +1294,13 @@ class QueryBuilder:
             concept_ids = [c.concept_id for c in criteria.route_concept]
             query = query.where(drug_exposure.c.route_concept_id.in_(concept_ids))
 
-        # TODO: Implement route_concept_cs
+        # 8b. Route Concept (ConceptSetSelection)
+        if criteria.route_concept_cs:
+            query = self._apply_concept_set_selection(
+                query,
+                drug_exposure.c.route_concept_id,
+                criteria.route_concept_cs,
+            )
 
         # 9. Lot Number (TextFilter) -> lot_number LIKE ...
         if criteria.lot_number:
