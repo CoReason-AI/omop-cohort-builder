@@ -9,6 +9,7 @@ from omop_cohort_builder.domain import (
     DrugExposure,
     VisitOccurrence,
     ProcedureOccurrence,
+    Measurement,
 )
 from omop_cohort_builder.base import (
     TextFilter,
@@ -520,3 +521,30 @@ def test_route_concept_exclusion_nullable():
     sql = compile_query(query)
 
     assert "drug_exposure.route_concept_id NOT IN (300)" in sql
+
+
+# --- Measurement Tests ---
+
+
+def test_measurement_concept_set_filters():
+    """Test ConceptSetSelection filters for Measurement."""
+    criteria = Measurement(
+        measurement_type_cs=ConceptSetSelection(codeset_id=1, is_exclusion=False),
+        operator_cs=ConceptSetSelection(codeset_id=2, is_exclusion=False),
+        value_as_concept_cs=ConceptSetSelection(codeset_id=3, is_exclusion=True),
+        unit_cs=ConceptSetSelection(codeset_id=4, is_exclusion=False),
+    )
+    cs_map = {
+        1: [100],
+        2: [200],
+        3: [300],
+        4: [400],
+    }
+    builder = QueryBuilder(concept_set_map=cs_map)
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    assert "measurement.measurement_type_concept_id IN (100)" in sql
+    assert "measurement.operator_concept_id IN (200)" in sql
+    assert "measurement.value_as_concept_id NOT IN (300)" in sql
+    assert "measurement.unit_concept_id IN (400)" in sql

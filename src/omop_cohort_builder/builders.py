@@ -1100,10 +1100,26 @@ class QueryBuilder:
                 measurement.c.measurement_type_concept_id.in_(concept_ids)
             )
 
+        # 1b. Measurement Type (ConceptSetSelection)
+        if criteria.measurement_type_cs:
+            query = self._apply_concept_set_selection(
+                query,
+                measurement.c.measurement_type_concept_id,
+                criteria.measurement_type_cs,
+            )
+
         # 2. Operator (List of Concepts) -> operator_concept_id IN (...)
         if criteria.operator:
             concept_ids = [c.concept_id for c in criteria.operator]
             query = query.where(measurement.c.operator_concept_id.in_(concept_ids))
+
+        # 2b. Operator (ConceptSetSelection)
+        if criteria.operator_cs:
+            query = self._apply_concept_set_selection(
+                query,
+                measurement.c.operator_concept_id,
+                criteria.operator_cs,
+            )
 
         # 3. Value As Number (NumericRange)
         if criteria.value_as_number:
@@ -1116,10 +1132,26 @@ class QueryBuilder:
             concept_ids = [c.concept_id for c in criteria.value_as_concept]
             query = query.where(measurement.c.value_as_concept_id.in_(concept_ids))
 
+        # 4b. Value As Concept (ConceptSetSelection)
+        if criteria.value_as_concept_cs:
+            query = self._apply_concept_set_selection(
+                query,
+                measurement.c.value_as_concept_id,
+                criteria.value_as_concept_cs,
+            )
+
         # 5. Unit (List of Concepts) -> unit_concept_id IN (...)
         if criteria.unit:
             concept_ids = [c.concept_id for c in criteria.unit]
             query = query.where(measurement.c.unit_concept_id.in_(concept_ids))
+
+        # 5b. Unit (ConceptSetSelection)
+        if criteria.unit_cs:
+            query = self._apply_concept_set_selection(
+                query,
+                measurement.c.unit_concept_id,
+                criteria.unit_cs,
+            )
 
         # 6. Range Low (NumericRange)
         if criteria.range_low:
