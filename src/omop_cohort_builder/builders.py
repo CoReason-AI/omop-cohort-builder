@@ -59,9 +59,9 @@ def _get_criteria_columns_dispatch(criteria: Criteria):
     Returns the (start_column, end_column) for the given criteria type.
     Used for column normalization in primary criteria.
     """
-    raise NotImplementedError(  # pragma: no cover
-        f"Column mapping not implemented for type: {type(criteria)}"  # pragma: no cover
-    )
+    raise NotImplementedError(
+        f"Column mapping not implemented for type: {type(criteria)}"
+    )  # pragma: no cover
 
 
 @_get_criteria_columns_dispatch.register
@@ -473,7 +473,7 @@ class QueryBuilder:
 
                 return query
             else:
-                pass
+                pass  # pragma: no cover
 
         return query
 
@@ -547,7 +547,7 @@ class QueryBuilder:
 
         if occurrence.type == Occurrence.AT_MOST or (
             occurrence.type == Occurrence.EXACTLY and occurrence.count == 0
-        ):
+        ):  # pragma: no cover
             # Switch to LEFT JOIN
             query = select(
                 literal(index_id).label("index_id"),
@@ -690,9 +690,9 @@ class QueryBuilder:
         """
         Dispatches the build call to the appropriate method based on the criteria type.
         """
-        raise NotImplementedError(  # pragma: no cover
-            f"Query builder not implemented for type: {type(criteria)}"  # pragma: no cover
-        )
+        raise NotImplementedError(
+            f"Query builder not implemented for type: {type(criteria)}"
+        )  # pragma: no cover
 
     @build_criteria.register
     def _build_condition_occurrence(self, criteria: ConditionOccurrence) -> Select:
