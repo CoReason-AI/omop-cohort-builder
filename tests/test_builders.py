@@ -450,3 +450,73 @@ def test_date_filter_ops():
         "procedure_occurrence.procedure_date NOT BETWEEN '2020-01-01' AND '2020-12-31'"
         in sql_nbt
     )
+
+
+def test_concept_set_empty_inclusion():
+    """Test empty concept set filter (inclusion) -> should return False (exclude all)."""
+    # codeset_id=1 maps to nothing in our empty map default
+    criteria = DrugExposure(
+        drug_type_cs=ConceptSetSelection(codeset_id=1, is_exclusion=False)
+    )
+    builder = QueryBuilder(concept_set_map={})  # Empty map
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    # SQLAlchemy compiles `literal(False)` often as `0 = 1` or `false` depending on dialect context
+    # In WHERE clause: `WHERE false` or `WHERE 0 = 1`
+    assert "false" in sql.lower() or "0 = 1" in sql
+
+
+def test_concept_set_empty_exclusion():
+    """Test empty concept set filter (exclusion) -> should return True (include all / no filter)."""
+    criteria = DrugExposure(
+        drug_type_cs=ConceptSetSelection(codeset_id=1, is_exclusion=True)
+    )
+    builder = QueryBuilder(concept_set_map={})
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    # Should NOT have a WHERE clause for drug_type_concept_id
+    # We check that the column name appears in the SELECT list (implicitly true)
+    # but NOT in a WHERE clause context (e.g. "WHERE ... drug_type_concept_id ...")
+    # Since there are no other filters, "WHERE" should not be present at all.
+    assert "WHERE" not in sql
+
+
+def test_drug_exposure_mixed_concept_filters():
+    """Test mixing explicit concept list AND concept set selection."""
+    c1 = Concept(
+        CONCEPT_ID=101,
+        CONCEPT_NAME="Drug A",
+        DOMAIN_ID="Drug",
+        VOCABULARY_ID="RxNorm",
+        CONCEPT_CLASS_ID="Drug",
+    )
+    # List filter: IN (101)
+    # Set filter: IN (200, 201)
+    criteria = DrugExposure(
+        drug_type=[c1],
+        drug_type_cs=ConceptSetSelection(codeset_id=2, is_exclusion=False),
+    )
+    cs_map = {2: [200, 201]}
+    builder = QueryBuilder(concept_set_map=cs_map)
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    assert "drug_exposure.drug_type_concept_id IN (101)" in sql
+    assert "drug_exposure.drug_type_concept_id IN (200, 201)" in sql
+    assert "AND" in sql
+
+
+def test_route_concept_exclusion_nullable():
+    """Test exclusion on a nullable column (route_concept_id)."""
+    # Exclusion: NOT IN (300)
+    criteria = DrugExposure(
+        route_concept_cs=ConceptSetSelection(codeset_id=3, is_exclusion=True)
+    )
+    cs_map = {3: [300]}
+    builder = QueryBuilder(concept_set_map=cs_map)
+    query = builder.build_criteria(criteria)
+    sql = compile_query(query)
+
+    assert "drug_exposure.route_concept_id NOT IN (300)" in sql
