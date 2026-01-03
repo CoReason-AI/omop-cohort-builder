@@ -313,3 +313,33 @@ def test_build_criteria_group_at_unknown(qb, primary_events):
     # The inner queries might have HAVING, but the OUTER group aggregation should NOT.
     # The outer group aggregates 'group_union.index_id'.
     assert "having count(group_union.index_id)" not in sql.lower()
+
+
+def test_build_criteria_group_unknown_root_type(qb, primary_events):
+    """Test CriteriaGroup with completely unknown type (not ALL/ANY/AT_*)."""
+    group = CriteriaGroup(
+        type="UNKNOWN_TYPE",
+        criteria_list=[
+            CorelatedCriteria(
+                criteria=ConditionOccurrence(codeset_id=1),
+                start_window=Window(
+                    start=Window.Endpoint(days=0, coeff=-1),
+                    end=Window.Endpoint(days=0, coeff=1),
+                ),
+                occurrence=Occurrence(type=2, count=1),
+            )
+        ],
+    )
+
+    query = qb.build_criteria_group_query(group, primary_events)
+    sql = normalize_sql(
+        str(
+            query.compile(
+                dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+            )
+        )
+    )
+
+    # Should have GROUP BY but no HAVING clause for the group aggregation
+    assert "GROUP BY" in sql
+    assert "having count(group_union.index_id)" not in sql.lower()

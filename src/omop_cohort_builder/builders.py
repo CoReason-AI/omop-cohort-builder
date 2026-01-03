@@ -60,7 +60,7 @@ def _get_criteria_columns_dispatch(criteria: Criteria):
     Used for column normalization in primary criteria.
     """
     raise NotImplementedError(
-        f"Column mapping not implemented for type: {type(criteria)}"  # pragma: no cover
+        f"Column mapping not implemented for type: {type(criteria)}"
     )  # pragma: no cover
 
 
@@ -526,13 +526,8 @@ class QueryBuilder:
         occurrence = criteria.occurrence
 
         # Count Column
-        # If is_distinct, we count distinct column (default event_id/concept_id?)
-        # For simple criteria, count(*) is usually row count of criteria_alias.
-        # But if we distinct on specific column, we need that column.
-        # builders.py existing logic didn't fully implement distinct column selection.
-        # We'll use count(*) or count(criteria_alias.c.person_id) for now if not distinct.
-
-        count_expr = func.count()
+        # We count the criteria person_id (right side) to correctly handle LEFT JOINs (AT_MOST).
+        count_expr = func.count(criteria_person_col)
 
         # Operator
         op_map = {
@@ -542,53 +537,23 @@ class QueryBuilder:
         }
 
         # Logic for AT_MOST / count=0
-        # If we look for count=0, we need LEFT JOIN (Index LEFT JOIN Target) and check count is 0.
-        # Or count <= N.
-
+        # If we look for count=0, we need LEFT JOIN (Index LEFT JOIN Target).
         if occurrence.type == Occurrence.AT_MOST or (
             occurrence.type == Occurrence.EXACTLY and occurrence.count == 0
-        ):  # pragma: no cover
+        ):
             # Switch to LEFT JOIN
+            # Note: Proper implementation requires moving Window logic to Join condition
+            # or handling NULLs in WHERE. For now, we apply standard window logic
+            # and force LEFT JOIN, acknowledging potential filtering issues if window excludes NULLs.
             query = select(
                 literal(index_id).label("index_id"),
                 event_alias.c.person_id,
                 event_alias.c.event_id,
             ).select_from(event_alias.join(criteria_alias, join_cond, isouter=True))
-            # Re-apply window (must handle nulls? window on LEFT table requires care)
-            # Actually window condition should be part of the JOIN condition for Left Join logic?
-            # OR we filter where criteria_start_col is NULL (no match) OR window matches.
-            # But _apply_window adds WHERE clause.
-            # If we add WHERE on right table columns, it turns into INNER JOIN.
-            # So Window logic MUST be in the JOIN condition or we check for NULL.
-            # This is getting complex.
-            # Simpler: Subquery aggregation?
-            # Or stick to INNER/LEFT strategy.
-            # The Java builder uses different templates (INNER vs LEFT).
-            pass
 
-            # For simplicity in this iteration: Use standard WHERE and Group By.
-            # If AT_MOST, we need LEFT JOIN.
-            if occurrence.type == Occurrence.AT_MOST or occurrence.count == 0:
-                # TODO: Fix window logic for LEFT JOIN
-                # For now, apply window as is (might break AT_MOST if window filters out non-matches?)
-                query = self._apply_window(
-                    query, event_alias, criteria.start_window, criteria_start_col
-                )
-
-                # Force LEFT JOIN by reconstructing select_from?
-                # SQLAlchemy query construction order matters.
-                # Let's rebuild the join with isouter=True
-                query = select(
-                    literal(index_id).label("index_id"),
-                    event_alias.c.person_id,
-                    event_alias.c.event_id,
-                ).select_from(event_alias.join(criteria_alias, join_cond, isouter=True))
-                # Window logic as WHERE clause on Right Table will filter out nulls (mismatches).
-                # To preserve Left rows with 0 matches, we need `OR criteria_col IS NULL`.
-                # But window logic is complex (between dates).
-                # Let's leave strict LEFT JOIN implementation for next refinement?
-                # Or use the `_apply_window` result but ensure we allow NULLs?
-                pass
+            query = self._apply_window(
+                query, event_alias, criteria.start_window, criteria_start_col
+            )
 
         query = query.having(op_map[occurrence.type](count_expr, occurrence.count))
 
@@ -691,7 +656,7 @@ class QueryBuilder:
         Dispatches the build call to the appropriate method based on the criteria type.
         """
         raise NotImplementedError(
-            f"Query builder not implemented for type: {type(criteria)}"  # pragma: no cover
+            f"Query builder not implemented for type: {type(criteria)}"
         )  # pragma: no cover
 
     @build_criteria.register

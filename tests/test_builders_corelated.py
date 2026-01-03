@@ -71,7 +71,7 @@ def test_build_corelated_criteria_query_basic():
 
     # Aggregation
     assert "GROUP BY primary_events.person_id, primary_events.event_id" in normalized
-    assert "HAVING count(*) >= 1" in normalized
+    assert "HAVING count(criteria_events.person_id) >= 1" in normalized
 
 
 def test_build_corelated_criteria_count_check():
@@ -111,7 +111,7 @@ def test_build_corelated_criteria_count_check():
     )
 
     # Check for count
-    assert "count(*) >= 2" in sql.lower()
+    assert "count(criteria_events.person_id) >= 2" in sql.lower()
 
 
 def test_build_corelated_criteria_exactly():
@@ -146,7 +146,7 @@ def test_build_corelated_criteria_exactly():
         )
     )
 
-    assert "count(*) = 5" in sql.lower()
+    assert "count(criteria_events.person_id) = 5" in sql.lower()
 
 
 def test_build_corelated_criteria_at_most():
@@ -183,7 +183,7 @@ def test_build_corelated_criteria_at_most():
 
     # Should use LEFT OUTER JOIN for AT_MOST
     assert "LEFT OUTER JOIN" in sql
-    assert "count(*) <= 3" in sql.lower()
+    assert "count(criteria_events.person_id) <= 3" in sql.lower()
 
 
 def test_build_corelated_criteria_exactly_zero():
@@ -220,7 +220,7 @@ def test_build_corelated_criteria_exactly_zero():
 
     # EXACTLY 0 uses LEFT OUTER JOIN logic
     assert "LEFT OUTER JOIN" in sql
-    assert "count(*) = 0" in sql.lower()
+    assert "count(criteria_events.person_id) = 0" in sql.lower()
 
 
 def test_build_corelated_criteria_unknown_type():
@@ -262,3 +262,68 @@ def test_get_criteria_columns_unimplemented_direct():
 
     with pytest.raises(NotImplementedError):
         default_impl(DummyCriteria())
+
+
+def test_build_corelated_criteria_use_index_end():
+    """Test using index end date for window calculation."""
+    window = Window(
+        start=Window.Endpoint(days=0, coeff=1),
+        end=Window.Endpoint(days=30, coeff=1),
+        use_index_end=True,  # Key: Use Index END
+        use_event_end=False,
+    )
+    criteria = CorelatedCriteria(
+        criteria=ConditionOccurrence(codeset_id=1),
+        start_window=window,
+        occurrence=Occurrence(type=2, count=1),
+    )
+    qb = QueryBuilder(concept_set_map={1: [100]})
+    primary_events = table(
+        "primary_events",
+        column("person_id"),
+        column("start_date"),
+        column("end_date"),
+        column("event_id"),
+    )
+
+    query = qb.build_corelated_criteria_query(criteria, primary_events, index_id=0)
+    sql = normalize_sql(
+        str(
+            query.compile(
+                dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+            )
+        )
+    )
+
+    # Should calculate window relative to primary_events.end_date
+    assert "BETWEEN primary_events.end_date + 0 AND primary_events.end_date + 30" in sql
+
+
+def test_build_corelated_criteria_no_window():
+    """Test CorelatedCriteria with no start window."""
+    criteria = CorelatedCriteria(
+        criteria=ConditionOccurrence(codeset_id=1),
+        start_window=None,  # No window
+        occurrence=Occurrence(type=2, count=1),
+    )
+    qb = QueryBuilder(concept_set_map={1: [100]})
+    primary_events = table(
+        "primary_events",
+        column("person_id"),
+        column("start_date"),
+        column("end_date"),
+        column("event_id"),
+    )
+
+    query = qb.build_corelated_criteria_query(criteria, primary_events, index_id=0)
+    sql = normalize_sql(
+        str(
+            query.compile(
+                dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+            )
+        )
+    )
+
+    # Should join but NOT have BETWEEN window logic
+    assert "JOIN (SELECT condition_occurrence" in sql
+    assert "BETWEEN" not in sql
